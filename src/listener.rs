@@ -201,6 +201,28 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
 
 /// Ability to subscribe to a source of messages, causing a [`Listener`] to receive them
 /// as long as it wishes to.
+///
+/// # Examples
+///
+/// It is common to implement [`Listen`] so as to delegate to a [`Notifier`].
+/// Such an implementation is written as follows:
+///
+/// ```
+/// use synch::{Listen, IntoDynListener, unsync::Notifier};
+///
+/// struct MyType {
+///     notifier: Notifier<MyMessage>,
+/// }
+/// struct MyMessage;
+///
+/// impl Listen for MyType {
+///     type Msg = MyMessage;
+///     type Listener = <Notifier<Self::Msg> as Listen>::Listener;
+///     fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+///         self.notifier.listen(listener)
+///     }
+/// }
+/// ```
 pub trait Listen {
     /// The type of message which may be obtained from this source.
     ///
