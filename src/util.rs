@@ -153,7 +153,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Listen as _, Notifier, Sink};
+    use crate::{unsync::Notifier, Listen as _, Sink};
     use alloc::vec;
     use alloc::vec::Vec;
 

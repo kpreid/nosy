@@ -6,22 +6,24 @@
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use core::fmt;
+use core::marker::PhantomData;
 use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 
 #[cfg(doc)]
 use alloc::sync::Arc;
 
 use crate::maybe_sync::RwLock;
-use crate::{DynListener, Listen, Listener};
+use crate::{IntoDynListener, Listen, Listener};
 
-#[cfg(doc)]
-use crate::ListenableCell;
+// #[cfg(doc)]
+// use crate::ListenableCell;
 
 // -------------------------------------------------------------------------------------------------
 
 /// Message broadcaster, usually used for change notifications.
 ///
-/// A `Notifier<M>` delivers messages of type `M` to a dynamic set of [`Listener`]s.
+/// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
+/// of type `L`.
 ///
 /// The `Notifier` is usually owned by some entity which emits messages when it changes,
 /// such as a [`ListenableCell`].
@@ -30,22 +32,28 @@ use crate::ListenableCell;
 ///
 /// [`Listener`]s may be added using the [`Listen`] implementation, and are removed when
 /// they report themselves as dead.
-pub struct Notifier<M> {
-    pub(crate) listeners: RwLock<Vec<NotifierEntry<M>>>,
+///
+/// We recommend that you use the type aliases [`sync::Notifier`](crate::sync::Notifier)
+/// or [`unsync::Notifier`](crate::unsync::Notifier), to avoid writing the type parameter
+/// `L` outside of special cases.
+pub struct Notifier<M, L> {
+    listeners: RwLock<Vec<NotifierEntry<L>>>,
+    _phantom: PhantomData<fn(&M)>,
 }
 
-pub(crate) struct NotifierEntry<M> {
-    pub(crate) listener: DynListener<M>,
+pub(crate) struct NotifierEntry<L> {
+    listener: L,
     /// True iff every call to `listener.receive()` has returned true.
-    pub(crate) was_alive: AtomicBool,
+    was_alive: AtomicBool,
 }
 
-impl<M> Notifier<M> {
+impl<M, L: Listener<M>> Notifier<M, L> {
     /// Constructs a new empty [`Notifier`].
     #[must_use]
     pub fn new() -> Self {
         Self {
             listeners: RwLock::default(),
+            _phantom: PhantomData,
         }
     }
 
@@ -58,7 +66,7 @@ impl<M> Notifier<M> {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use synch::{Listen, Notifier, Sink};
+    /// use synch::{Listen, sync::Notifier, Sink};
     ///
     /// let notifier_1 = Notifier::new();
     /// let notifier_2 = Arc::new(Notifier::new());
@@ -77,7 +85,7 @@ impl<M> Notifier<M> {
     /// # assert_eq!(notifier_1.count(), 0);
     /// ```
     #[must_use]
-    pub fn forwarder(this: Weak<Self>) -> NotifierForwarder<M> {
+    pub fn forwarder(this: Weak<Self>) -> NotifierForwarder<M, L> {
         NotifierForwarder(this)
     }
 
@@ -107,7 +115,7 @@ impl<M> Notifier<M> {
     ///
     /// The buffer does not use any heap allocations and will collect up to `CAPACITY` messages
     /// per batch.
-    pub fn buffer<const CAPACITY: usize>(&self) -> Buffer<'_, M, CAPACITY> {
+    pub fn buffer<const CAPACITY: usize>(&self) -> Buffer<'_, M, L, CAPACITY> {
         Buffer::new(self)
     }
 
@@ -122,7 +130,7 @@ impl<M> Notifier<M> {
     }
 
     /// Discard all dead weak pointers in `listeners`.
-    pub(crate) fn cleanup(listeners: &mut Vec<NotifierEntry<M>>) {
+    pub(crate) fn cleanup(listeners: &mut Vec<NotifierEntry<L>>) {
         let mut i = 0;
         while i < listeners.len() {
             let entry = &listeners[i];
@@ -138,10 +146,11 @@ impl<M> Notifier<M> {
     }
 }
 
-impl<M> Listen for Notifier<M> {
+impl<M, L: Listener<M>> Listen for Notifier<M, L> {
     type Msg = M;
+    type Listener = L;
 
-    fn listen<L: Listener<M> + 'static>(&self, listener: L) {
+    fn listen<L2: IntoDynListener<M, L>>(&self, listener: L2) {
         if !listener.receive(&[]) {
             // skip adding it if it's already dead
             return;
@@ -150,19 +159,19 @@ impl<M> Listen for Notifier<M> {
         // TODO: consider amortization by not doing cleanup every time
         Self::cleanup(&mut listeners);
         listeners.push(NotifierEntry {
-            listener: listener.erased(),
+            listener: listener.into_dyn_listener(),
             was_alive: AtomicBool::new(true),
         });
     }
 }
 
-impl<M> Default for Notifier<M> {
+impl<M, L: Listener<M>> Default for Notifier<M, L> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<M> fmt::Debug for Notifier<M> {
+impl<M, L> fmt::Debug for Notifier<M, L> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // not using fmt.debug_tuple() so this is never printed on multiple lines
         if let Ok(listeners) = self.listeners.try_read() {
@@ -181,13 +190,19 @@ impl<M> fmt::Debug for Notifier<M> {
 /// they are sent through the notifier. Creating such a batch is intended to increase performance
 /// by not executing dynamic dispatch to every notifier for every message.
 #[derive(Debug)]
-pub struct Buffer<'notifier, M, const CAPACITY: usize> {
+pub struct Buffer<'notifier, M, L, const CAPACITY: usize>
+where
+    L: Listener<M>,
+{
     pub(crate) buffer: arrayvec::ArrayVec<M, CAPACITY>,
-    pub(crate) notifier: &'notifier Notifier<M>,
+    pub(crate) notifier: &'notifier Notifier<M, L>,
 }
 
-impl<'notifier, M, const CAPACITY: usize> Buffer<'notifier, M, CAPACITY> {
-    pub(crate) fn new(notifier: &'notifier Notifier<M>) -> Self {
+impl<'notifier, M, L, const CAPACITY: usize> Buffer<'notifier, M, L, CAPACITY>
+where
+    L: Listener<M>,
+{
+    pub(crate) fn new(notifier: &'notifier Notifier<M, L>) -> Self {
         Self {
             buffer: arrayvec::ArrayVec::new(),
             notifier,
@@ -211,7 +226,10 @@ impl<'notifier, M, const CAPACITY: usize> Buffer<'notifier, M, CAPACITY> {
     }
 }
 
-impl<M, const CAPACITY: usize> Drop for Buffer<'_, M, CAPACITY> {
+impl<M, L, const CAPACITY: usize> Drop for Buffer<'_, M, L, CAPACITY>
+where
+    L: Listener<M>,
+{
     fn drop(&mut self) {
         // TODO: Should we discard messages if panicking?
         // Currently leaning no, because we've specified that listeners should not panic even under
@@ -226,9 +244,9 @@ impl<M, const CAPACITY: usize> Drop for Buffer<'_, M, CAPACITY> {
 
 /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
 /// Constructed by [`Notifier::forwarder()`].
-pub struct NotifierForwarder<M>(pub(super) Weak<Notifier<M>>);
+pub struct NotifierForwarder<M, L>(pub(super) Weak<Notifier<M, L>>);
 
-impl<M> fmt::Debug for NotifierForwarder<M> {
+impl<M, L> fmt::Debug for NotifierForwarder<M, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NotifierForwarder")
             .field("alive(shallow)", &(self.0.strong_count() > 0))
@@ -236,7 +254,7 @@ impl<M> fmt::Debug for NotifierForwarder<M> {
     }
 }
 
-impl<M> Listener<M> for NotifierForwarder<M> {
+impl<M, L: Listener<M>> Listener<M> for NotifierForwarder<M, L> {
     fn receive(&self, messages: &[M]) -> bool {
         if let Some(notifier) = self.0.upgrade() {
             notifier.notify_many(messages);
@@ -247,7 +265,7 @@ impl<M> Listener<M> for NotifierForwarder<M> {
     }
 }
 
-impl<M> Clone for NotifierForwarder<M> {
+impl<M, L> Clone for NotifierForwarder<M, L> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -263,7 +281,7 @@ mod tests {
 
     #[test]
     fn notifier_basics_and_debug() {
-        let cn: Notifier<u8> = Notifier::new();
+        let cn: crate::unsync::Notifier<u8> = Notifier::new();
         assert_eq!(format!("{cn:?}"), "Notifier(0)");
         cn.notify(0);
         assert_eq!(format!("{cn:?}"), "Notifier(0)");

@@ -66,13 +66,29 @@ pub trait Listener<M>: fmt::Debug {
 
     /// Convert this listener into trait object form, allowing it to be stored in
     /// collections or passed non-generically.
+    /// The produced trait object does not implement [`Sync`].
     ///
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
-    /// avoid double-wrapping of a listener that's already in [`Arc`]. **Other
-    /// implementors should not override this.**
-    fn erased(self) -> DynListener<M>
+    /// avoid double-wrapping of a listener that's already in [`Arc`].
+    /// **You should not need to override this method.**
+    fn erased_unsync(self) -> crate::unsync::DynListener<M>
     where
         Self: Sized + 'static,
+    {
+        Arc::new(self)
+    }
+
+    /// Convert this listener into trait object form, allowing it to be stored in
+    /// collections or passed non-generically.
+    /// The produced trait object implements [`Sync`].
+    ///
+    /// The purpose of this method over simply calling [`Arc::new()`] is that it will
+    /// avoid double-wrapping of a listener that's already in [`Arc`].
+    /// **You should not need to override this method.**
+    #[cfg(feature = "sync")]
+    fn erased_sync(self) -> crate::sync::DynListener<M>
+    where
+        Self: Sized + Send + Sync + 'static,
     {
         Arc::new(self)
     }
@@ -122,16 +138,92 @@ pub trait Listener<M>: fmt::Debug {
     }
 }
 
-/// Type-erased form of a [`Listener`] which accepts messages of type `M`.
-pub type DynListener<M> = Arc<dyn Listener<M>>;
+// -------------------------------------------------------------------------------------------------
+// Type-erasure related traits and impls.
 
-impl<M> Listener<M> for DynListener<M> {
+/// Conversion from a concrete listener type to some flavor of boxed trait object.
+///
+/// This trait is a helper for `Listen` and generally cannot be usefully implemented directly.
+pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
+    fn into_dyn_listener(self) -> L;
+}
+
+impl<L, M> IntoDynListener<M, crate::sync::DynListener<M>> for L
+where
+    L: Listener<M> + Send + Sync + 'static,
+{
+    fn into_dyn_listener(self) -> crate::sync::DynListener<M> {
+        self.erased_sync()
+    }
+}
+
+impl<L, M> IntoDynListener<M, crate::unsync::DynListener<M>> for L
+where
+    L: Listener<M> + 'static,
+{
+    fn into_dyn_listener(self) -> crate::unsync::DynListener<M> {
+        self.erased_unsync()
+    }
+}
+
+impl<M> Listener<M> for crate::unsync::DynListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         (**self).receive(messages)
     }
 
-    fn erased(self) -> DynListener<M> {
+    fn erased_unsync(self) -> crate::unsync::DynListener<M> {
         self
+    }
+}
+impl<M> Listener<M> for crate::sync::DynListener<M> {
+    fn receive(&self, messages: &[M]) -> bool {
+        (**self).receive(messages)
+    }
+
+    fn erased_unsync(self) -> crate::unsync::DynListener<M> {
+        self
+    }
+
+    fn erased_sync(self) -> crate::sync::DynListener<M> {
+        self
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/// Ability to subscribe to a source of messages, causing a [`Listener`] to receive them
+/// as long as it wishes to.
+pub trait Listen {
+    /// The type of message which may be obtained from this source.
+    ///
+    /// Most message types should satisfy `Copy + Send + Sync + 'static`, but this is not required.
+    type Msg;
+
+    /// The type which all added listeners must be convertible to.
+    type Listener: Listener<Self::Msg>;
+
+    /// Subscribe the given [`Listener`] to this source of messages.
+    ///
+    /// Note that listeners are removed only via their returning [`false`] from
+    /// [`Listener::receive()`]; there is no operation to remove a listener,
+    /// nor are subscriptions deduplicated.
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L);
+}
+
+impl<T: Listen> Listen for &T {
+    type Msg = T::Msg;
+    type Listener = T::Listener;
+
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+        (**self).listen(listener)
+    }
+}
+impl<T: Listen> Listen for alloc::sync::Arc<T> {
+    type Msg = T::Msg;
+    type Listener = T::Listener;
+
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+        (**self).listen(listener)
     }
 }
 
@@ -140,18 +232,19 @@ impl<M> Listener<M> for DynListener<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::unsync::DynListener;
     use crate::Sink;
     use alloc::{format, vec};
 
     #[test]
     fn erased_listener() {
         let sink = Sink::new();
-        let listener: DynListener<&str> = sink.listener().erased();
+        let listener: DynListener<&str> = sink.listener().erased_unsync();
 
         // Should not gain a new wrapper when erased() again.
         assert_eq!(
             Arc::as_ptr(&listener),
-            Arc::as_ptr(&listener.clone().erased())
+            Arc::as_ptr(&listener.clone().erased_unsync())
         );
 
         // Should report alive (and not infinitely recurse).

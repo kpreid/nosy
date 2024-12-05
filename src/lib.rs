@@ -56,11 +56,8 @@ extern crate std;
 
 // -------------------------------------------------------------------------------------------------
 
-mod cell;
-pub use cell::*;
-
 mod listener;
-pub use listener::{DynListener, Listener};
+pub use listener::{IntoDynListener, Listen, Listener};
 
 mod listeners;
 pub use listeners::*;
@@ -78,33 +75,44 @@ pub use util::*;
 
 // -------------------------------------------------------------------------------------------------
 
-/// Ability to subscribe to a source of messages, causing a [`Listener`] to receive them
-/// as long as it wishes to.
-pub trait Listen {
-    /// The type of message which may be obtained from this source.
+#[cfg(feature = "sync")]
+#[path = "sync_or_not/"]
+#[allow(clippy::duplicate_mod)]
+pub mod sync {
+    #[cfg(doc)]
+    use crate::unsync;
+
+    /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
-    /// Most message types should satisfy `Copy + Send + Sync + 'static`, but this is not required.
-    type Msg;
+    /// This type is [`Send`] and [`Sync`]. When that is not satisfiable, use
+    /// [`unsync::DynListener`] instead.
+    pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M> + Send + Sync>;
 
-    /// Subscribe the given [`Listener`] to this source of messages.
+    pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
+}
+
+#[path = "sync_or_not/"]
+#[allow(clippy::duplicate_mod)]
+pub mod unsync {
+    #[cfg(doc)]
+    use crate::unsync;
+
+    /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
-    /// Note that listeners are removed only via their returning [`false`] from
-    /// [`Listener::receive()`]; there is no operation to remove a listener,
-    /// nor are subscriptions deduplicated.
-    fn listen<L: Listener<Self::Msg> + 'static>(&self, listener: L);
+    /// This type is not [`Send`] or  [`Sync`]. When that is needed, use
+    /// [`sync::DynListener`] instead.
+    //---
+    // TODO: try making this only Rc instead of Arc
+    pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M>>;
+
+    pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 }
 
-impl<T: Listen> Listen for &T {
-    type Msg = T::Msg;
+// mod sync_if_possible {
+//     #[cfg(feature = "sync")]
+//     pub(crate) use crate::sync::*;
+//     #[cfg(not(feature = "sync"))]
+//     pub(crate) use crate::unsync::*;
+// }
 
-    fn listen<L: Listener<Self::Msg> + 'static>(&self, listener: L) {
-        (**self).listen(listener)
-    }
-}
-impl<T: Listen> Listen for alloc::sync::Arc<T> {
-    type Msg = T::Msg;
-
-    fn listen<L: Listener<Self::Msg> + 'static>(&self, listener: L) {
-        (**self).listen(listener)
-    }
-}
+// -------------------------------------------------------------------------------------------------

@@ -8,7 +8,7 @@ use manyfmt::formats::Unquote;
 use manyfmt::Refmt as _;
 
 use crate::maybe_sync::RwLock;
-use crate::{Listen, Listener};
+use crate::Listener;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -208,7 +208,11 @@ impl DirtyFlag {
     ///
     /// This is a convenience for calling `new()` followed by `listener()`.
     #[must_use]
-    pub fn listening(value: bool, source: impl Listen) -> Self {
+    pub fn listening<L>(value: bool, source: L) -> Self
+    where
+        L: crate::Listen,
+        DirtyFlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
+    {
         let new_self = Self::new(value);
         source.listen(new_self.listener());
         new_self
@@ -257,7 +261,8 @@ impl<M> Listener<M> for DirtyFlagListener {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Notifier;
+    use crate::unsync::Notifier;
+    use crate::Listen as _;
     use alloc::format;
 
     #[test]
