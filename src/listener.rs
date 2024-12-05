@@ -6,17 +6,20 @@
 use alloc::sync::Arc;
 use core::fmt;
 
-#[cfg(doc)]
-use crate::StoreLock;
+use crate::Filter;
 
+#[cfg(doc)]
+use crate::{FnListener, Notifier, Store, StoreLock};
+
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// A receiver of messages (typically from something implementing [`Listen`]) which can
 /// indicate when it is no longer interested in them (typically because the associated
 /// recipient has been dropped).
 ///
 /// Listeners are typically used in trait object form, which may be created by calling
-/// [`erased()`](Self::erased); this is done implicitly by [`Notifier`], but calling it
-/// earlier may in some cases be useful to minimize the number of separately allocated
-/// clones of the listener.
+/// [`erased_unsync()`](Self::erased_unsync) or [`erased_sync()`](Self::erased_sync);
+/// this is done implicitly by [`Notifier`], but calling it earlier may in some cases
+/// be useful to minimize the number of separately allocated clones of the listener.
 ///
 /// Please note the requirements set out in [`Listener::receive()`].
 ///
@@ -56,7 +59,7 @@ pub trait Listener<M>: fmt::Debug {
     ///
     /// The typical pattern is for a listener to contain a `Weak<Mutex<...>>` or similar
     /// multiply-owned mutable structure to aggregate incoming messages, which will
-    /// then be read and cleared by a later task; see [`FnListener`] for assistance in
+    /// then be read and cleared by a later task; see [`StoreLock`] for assistance in
     /// implementing this pattern.
     ///
     /// Note that a [`Notifier`] might call `.receive(&[])` at any time, particularly when
@@ -102,12 +105,12 @@ pub trait Listener<M>: fmt::Debug {
     /// that case.
     ///
     /// TODO: Doc test
-    fn filter<MI, F>(self, function: F) -> crate::Filter<F, Self, 1>
+    fn filter<MI, F>(self, function: F) -> Filter<F, Self, 1>
     where
         Self: Sized,
         F: for<'a> Fn(&'a MI) -> Option<M>,
     {
-        crate::Filter {
+        Filter {
             function,
             target: self,
         }
@@ -141,13 +144,15 @@ pub trait Listener<M>: fmt::Debug {
 // -------------------------------------------------------------------------------------------------
 // Type-erasure related traits and impls.
 
-/// Conversion from a concrete listener type to some flavor of boxed trait object.
+/// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
 ///
 /// This trait is a helper for `Listen` and generally cannot be usefully implemented directly.
 pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
+    /// Wrap this [`Listener`] into a type-erased form of type `L`.
     fn into_dyn_listener(self) -> L;
 }
 
+#[cfg(feature = "sync")]
 impl<L, M> IntoDynListener<M, crate::sync::DynListener<M>> for L
 where
     L: Listener<M> + Send + Sync + 'static,
@@ -174,7 +179,10 @@ impl<M> Listener<M> for crate::unsync::DynListener<M> {
     fn erased_unsync(self) -> crate::unsync::DynListener<M> {
         self
     }
+
+    // erased_sync() is unimplementable because its bounds are not met.
 }
+#[cfg(feature = "sync")]
 impl<M> Listener<M> for crate::sync::DynListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         (**self).receive(messages)

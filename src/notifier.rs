@@ -20,7 +20,8 @@ use crate::{IntoDynListener, Listen, Listener};
 
 // -------------------------------------------------------------------------------------------------
 
-/// Message broadcaster, usually used for change notifications.
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+/// Message broadcaster.
 ///
 /// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
 /// of type `L`.

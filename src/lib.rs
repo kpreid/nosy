@@ -75,6 +75,7 @@ pub use util::*;
 
 // -------------------------------------------------------------------------------------------------
 
+/// Type aliases for use when listeners are expected to implement [`Sync`].
 #[cfg(feature = "sync")]
 #[path = "sync_or_not/"]
 #[allow(clippy::duplicate_mod)]
@@ -88,23 +89,33 @@ pub mod sync {
     /// [`unsync::DynListener`] instead.
     pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M> + Send + Sync>;
 
+    /// Message broadcaster.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires all its [`Listener`]s to be so.
+    /// When this requirement is undesired, use [`unsync::Notifier`] instead.
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 }
 
+/// Type aliases for use when listeners are not expected to implement [`Sync`].
 #[path = "sync_or_not/"]
 #[allow(clippy::duplicate_mod)]
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 pub mod unsync {
-    #[cfg(doc)]
-    use crate::unsync;
+    #[cfg(all(doc, feature = "sync"))]
+    use crate::sync;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
-    /// This type is not [`Send`] or  [`Sync`]. When that is needed, use
+    /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::DynListener`] instead.
     //---
     // TODO: try making this only Rc instead of Arc
     pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M>>;
 
+    /// Message broadcaster.
+    ///
+    /// This type is not [`Send`] or [`Sync`]. When that is needed, use
+    /// [`sync::Notifier`] instead.
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 }
 

@@ -177,6 +177,7 @@ fn receive_bare_mutex<M, T: ?Sized + Store<M>>(
 
 // -------------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// Error from [`StoreLock::lock()`] when a previous operation panicked.
 ///
 /// This is similar to [`std::sync::PoisonError`], but does not allow bypassing the poison
