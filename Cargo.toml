@@ -1,0 +1,31 @@
+[package]
+name = "synch"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80.0"
+
+description = "Change notification / observation / broadcast channels, with synchronous delivery, filtering, and coalescing."
+repository = "https://github.com/kpreid/synch/"
+license = "MIT OR Apache-2.0"
+categories = ["asynchronous", "no-std"]
+keywords = ["change-notification", "listener", "observer", "observable"]
+
+[features]
+default = []
+# Enables trait implementations on `std` types, rather than only `alloc` types.
+std = []
+# Enables use of `std::sync` to implement `Sync` for our types.
+sync = []
+# TODO: Add "futures-stream" feature that adds `Stream` compatibility
+# TODO: Add lock_api compatibility
+
+[dependencies]
+arrayvec = { version = "0.7.4", default-features = false }
+# TODO: After we’re done with refactoring, see if we are really using cfg-if
+cfg-if = { version = "1.0.0", default-features = false }
+# TODO: Remove the trivial usage of manyfmt
+manyfmt = { version = "0.1.0", default-features = false }
+
+[dev-dependencies]
+pretty_assertions = { version = "1.2.0" }
+indoc = { version = "2.0.1", default-features = false }
