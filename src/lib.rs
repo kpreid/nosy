@@ -51,7 +51,7 @@
 
 extern crate alloc;
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(feature = "std", feature = "sync", test))]
 extern crate std;
 
 // -------------------------------------------------------------------------------------------------
