@@ -11,6 +11,22 @@
 //! The recommended pattern is to use listener implementors such as [`DirtyFlag`] or [`StoreLock`],
 //! which aggregate incoming messages, to be read and cleared by a task running on a more
 //! appropriate schedule.
+//!
+//! # Features and platform requirements
+//!
+//! The minimum requirements for using this library are:
+//!
+//! * The `alloc` standard library crate, and a global allocator.
+//! * Support for pointer-sized atomics (`cfg(target_has_atomic = "ptr")`).
+//!
+//! The following Cargo feature flags are defined:
+//!
+//! * `"std"`:
+//!   Enable implementations of our traits for `std` types.
+//!   Without this feature, only `core` and `alloc` types are used.
+//! * `"sync"`:
+//!   Adds [`Sync`] functionality for delivering messages across threads;
+//!   in particular, the [`sync`] module, and `Notifier: Sync` (when possible).
 
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
