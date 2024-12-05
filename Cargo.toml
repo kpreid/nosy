@@ -3,12 +3,14 @@ name = "synch"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80.0"
-
 description = "Change notification / observation / broadcast channels, with synchronous delivery, filtering, and coalescing."
 repository = "https://github.com/kpreid/synch/"
 license = "MIT OR Apache-2.0"
 categories = ["asynchronous", "no-std"]
 keywords = ["change-notification", "listener", "observer", "observable"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = []

@@ -8,7 +8,7 @@ use manyfmt::formats::Unquote;
 use manyfmt::Refmt as _;
 
 use crate::maybe_sync::RwLock;
-use crate::{Listen, Listener};
+use crate::Listener;
 
 // -------------------------------------------------------------------------------------------------
 
