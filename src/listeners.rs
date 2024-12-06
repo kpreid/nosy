@@ -8,7 +8,7 @@ use manyfmt::formats::Unquote;
 use manyfmt::Refmt as _;
 
 use crate::maybe_sync::RwLock;
-use crate::Listener;
+use crate::{Listen, Listener};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -210,7 +210,7 @@ impl DirtyFlag {
     #[must_use]
     pub fn listening<L>(value: bool, source: L) -> Self
     where
-        L: crate::Listen,
+        L: Listen,
         DirtyFlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
     {
         let new_self = Self::new(value);
@@ -262,7 +262,6 @@ impl<M> Listener<M> for DirtyFlagListener {
 mod tests {
     use super::*;
     use crate::unsync::Notifier;
-    use crate::Listen as _;
     use alloc::format;
 
     #[test]

@@ -98,12 +98,13 @@ pub use util::*;
 pub mod sync {
     #[cfg(doc)]
     use crate::unsync;
+    use crate::Listener;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
     /// This type is [`Send`] and [`Sync`]. When that is not satisfiable, use
     /// [`unsync::DynListener`] instead.
-    pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M> + Send + Sync>;
+    pub type DynListener<M> = alloc::sync::Arc<dyn Listener<M> + Send + Sync>;
 
     /// Message broadcaster.
     ///
@@ -119,6 +120,7 @@ pub mod sync {
 pub mod unsync {
     #[cfg(all(doc, feature = "sync"))]
     use crate::sync;
+    use crate::Listener;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
@@ -126,7 +128,7 @@ pub mod unsync {
     /// [`sync::DynListener`] instead.
     //---
     // TODO: try making this only Rc instead of Arc
-    pub type DynListener<M> = alloc::sync::Arc<dyn crate::Listener<M>>;
+    pub type DynListener<M> = alloc::sync::Arc<dyn Listener<M>>;
 
     /// Message broadcaster.
     ///

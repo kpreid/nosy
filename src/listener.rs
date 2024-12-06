@@ -6,7 +6,7 @@
 use alloc::sync::Arc;
 use core::fmt;
 
-use crate::Filter;
+use crate::{Filter, Gate};
 
 #[cfg(doc)]
 use crate::{FnListener, Notifier, Store, StoreLock};
@@ -133,11 +133,11 @@ pub trait Listener<M>: fmt::Debug {
     /// gated.receive(&["discarded"]);
     /// assert_eq!(sink.drain(), vec!["kept2"]);
     /// ```
-    fn gate(self) -> (crate::Gate, crate::GateListener<Self>)
+    fn gate(self) -> (Gate, crate::GateListener<Self>)
     where
         Self: Sized,
     {
-        crate::Gate::new(self)
+        Gate::new(self)
     }
 }
 

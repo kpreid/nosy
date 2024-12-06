@@ -26,9 +26,8 @@ use crate::{IntoDynListener, Listen, Listener};
 /// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
 /// of type `L`.
 ///
-/// The `Notifier` is usually owned by some entity which emits messages when it changes,
-/// such as a [`ListenableCell`].
-/// Each `Listener` usually holds a weak reference to allow it to be removed when the
+/// The `Notifier` is usually owned by some entity which emits messages when it changes.
+/// Each [`Listener`] usually holds a weak reference to allow it to be removed when the
 /// actual recipient is gone or uninterested.
 ///
 /// [`Listener`]s may be added using the [`Listen`] implementation, and are removed when
