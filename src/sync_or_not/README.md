@@ -1,1 +1,0 @@
-Code in this directory is loaded twice — once with and once without `Sync` bounds.
