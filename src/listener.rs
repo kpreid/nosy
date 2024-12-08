@@ -128,11 +128,11 @@ pub trait Listener<M>: fmt::Debug {
     /// }));
     ///
     /// // This message is filtered out.
-    /// notifier.notify(-1);
+    /// notifier.notify(&-1);
     /// assert_eq!(flag.get_and_clear(), false);
     ///
     /// // This message is passed through:
-    /// notifier.notify(2);
+    /// notifier.notify(&2);
     /// assert_eq!(flag.get_and_clear(), true);
     /// ```
     fn filter<MI, F>(self, function: F) -> Filter<F, Self, 1>
