@@ -1,15 +1,7 @@
 use core::error::Error;
+use core::marker::PhantomData;
+use core::panic::UnwindSafe;
 use core::{fmt, ops};
-
-// cfg_if::cfg_if! {
-//     if #[cfg(feature = "sync")] {
-//         pub(crate) trait SendSyncIfStd: Send + Sync {}
-//         impl<T: Send + Sync> SendSyncIfStd for T {}
-//     } else {
-//         pub trait SendSyncIfStd {}
-//         impl<T> SendSyncIfStd for T {}
-//     }
-// }
 
 /// Wrapper around [`core::cell::RefCell`] or [`std::sync::Mutex`] depending on whether
 /// the `std` feature is enabled.
@@ -17,15 +9,24 @@ use core::{fmt, ops};
 /// # Caution!
 ///
 /// * This may or may not be `Sync`.
-/// * This may or may not implement mutex poisoning.
+/// * This does not offer mutex poisoning.
 /// * This may or may not deadlock if locked again from the same thread.
 #[derive(Default)]
 #[must_use]
-pub(crate) struct Mutex<T: ?Sized>(InnerMutex<T>);
+pub(crate) struct Mutex<T: ?Sized> {
+    /// We want to be *not* `RefUnwindSafe`, just like `RefCell` is not.
+    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously.
+    _phantom: PhantomData<dyn Send + Sync + UnwindSafe>,
+
+    lock: InnerMutex<T>,
+}
 
 #[allow(missing_debug_implementations)]
 #[must_use]
-pub(crate) struct MutexGuard<'a, T: ?Sized>(InnerMutexGuard<'a, T>);
+pub(crate) struct MutexGuard<'a, T: ?Sized> {
+    guard: InnerMutexGuard<'a, T>,
+    _phantom: PhantomData<dyn Sync /* + !Send + !UnwindSafe + !RefUnwindSafe */>,
+}
 
 /// Wrapper around [`core::cell::RefCell`] or [`std::sync::RwLock`] depending on whether
 /// the `std` feature is enabled.
@@ -33,13 +34,25 @@ pub(crate) struct MutexGuard<'a, T: ?Sized>(InnerMutexGuard<'a, T>);
 /// # Caution!
 ///
 /// * This may or may not be `Sync`.
-/// * This may or may not implement mutex poisoning.
+/// * This does not offer mutex poisoning.
 /// * This may or may not deadlock if locked again from the same thread.
 #[derive(Default)]
-pub(crate) struct RwLock<T: ?Sized>(InnerRwLock<T>);
+pub(crate) struct RwLock<T: ?Sized> {
+    /// We want to be *not* `RefUnwindSafe`, just like `RefCell` is not.
+    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously.
+    _phantom: PhantomData<dyn Send + Sync + UnwindSafe /* + !RefUnwindSafe */>,
 
-pub(crate) struct RwLockReadGuard<'a, T: ?Sized>(InnerRwLockReadGuard<'a, T>);
-pub(crate) struct RwLockWriteGuard<'a, T: ?Sized>(InnerRwLockWriteGuard<'a, T>);
+    lock: InnerRwLock<T>,
+}
+
+pub(crate) struct RwLockReadGuard<'a, T: ?Sized> {
+    guard: InnerRwLockReadGuard<'a, T>,
+    _phantom: PhantomData<dyn Sync /* + !Send + !UnwindSafe + !RefUnwindSafe */>,
+}
+pub(crate) struct RwLockWriteGuard<'a, T: ?Sized> {
+    guard: InnerRwLockWriteGuard<'a, T>,
+    _phantom: PhantomData<dyn Sync /* + !Send + !UnwindSafe + !RefUnwindSafe */>,
+}
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "sync")] {
@@ -59,89 +72,99 @@ cfg_if::cfg_if! {
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for Mutex<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        self.lock.fmt(f)
     }
 }
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for RwLock<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        self.lock.fmt(f)
     }
 }
 
 impl<T> Mutex<T> {
     pub(crate) const fn new(value: T) -> Self {
-        Self(InnerMutex::new(value))
+        Self {
+            lock: InnerMutex::new(value),
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T: ?Sized> Mutex<T> {
-    pub(crate) fn lock(&self) -> Result<MutexGuard<'_, T>, LockError<MutexGuard<'_, T>>> {
+    pub(crate) fn lock(&self) -> MutexGuard<'_, T> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sync")] {
-                let result = self.0.lock()
-                    .map_err(|e: std::sync::PoisonError<_>| LockError::Poisoned(MutexGuard(e.into_inner())));
+                let guard = unpoison(self.lock.lock());
             } else {
-                let result = Ok(self.0.borrow_mut());
+                let guard = self.lock.borrow_mut();
             }
         }
-
-        result.map(MutexGuard)
+        MutexGuard {
+            guard,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T> RwLock<T> {
     pub(crate) const fn new(value: T) -> Self {
-        Self(InnerRwLock::new(value))
+        Self {
+            lock: InnerRwLock::new(value),
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T: ?Sized> RwLock<T> {
-    pub(crate) fn read(&self) -> Result<RwLockReadGuard<'_, T>, LockError<RwLockReadGuard<'_, T>>> {
+    pub(crate) fn read(&self) -> RwLockReadGuard<'_, T> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sync")] {
-                let result = self.0.read()
-                    .map_err(|e: std::sync::PoisonError<_>| LockError::Poisoned(RwLockReadGuard(e.into_inner())));
+                let guard = unpoison(self.lock.read());
             } else {
-                let result = Ok(self.0.borrow());
+                let guard = self.lock.borrow();
             }
         }
-
-        result.map(RwLockReadGuard)
+        RwLockReadGuard {
+            guard,
+            _phantom: PhantomData,
+        }
     }
 
-    pub(crate) fn write(
-        &self,
-    ) -> Result<RwLockWriteGuard<'_, T>, LockError<RwLockWriteGuard<'_, T>>> {
+    pub(crate) fn write(&self) -> RwLockWriteGuard<'_, T> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sync")] {
-                let result = self.0.write()
-                    .map_err(|e: std::sync::PoisonError<_>| LockError::Poisoned(RwLockWriteGuard(e.into_inner())));
+                let guard = unpoison(self.lock.write());
             } else {
-                let result = Ok(self.0.borrow_mut());
+                let guard = self.lock.borrow_mut();
             }
         }
-
-        result.map(RwLockWriteGuard)
+        RwLockWriteGuard {
+            guard,
+            _phantom: PhantomData,
+        }
     }
 
-    pub(crate) fn try_read(
-        &self,
-    ) -> Result<RwLockReadGuard<'_, T>, TryLockError<RwLockReadGuard<'_, T>>> {
+    pub(crate) fn try_read(&self) -> Result<RwLockReadGuard<'_, T>, TryLockError> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sync")] {
                 use std::sync::TryLockError as E;
-                let result = self.0.try_read().map_err(|e| match e {
-                    E::Poisoned(pe) => TryLockError::Poisoned(RwLockReadGuard(pe.into_inner())),
-                    E::WouldBlock => TryLockError::WouldBlock,
-                });
+                let result = match self.lock.try_read() {
+                    Ok(guard) => Ok(guard),
+                    Err(E::Poisoned(error)) => Ok(error.into_inner()),
+                    Err(E::WouldBlock) => Err(TryLockError),
+                };
             } else {
-                let result = self.0.try_borrow()
-                    .map_err(|core::cell::BorrowError {..}| TryLockError::WouldBlock);
+                let result = match self.lock.try_borrow() {
+                    Ok(guard) => Ok(guard),
+                    Err(core::cell::BorrowError {..}) => Err(TryLockError),
+                };
             }
         }
-
-        result.map(RwLockReadGuard)
+        result.map(|guard| RwLockReadGuard {
+            guard,
+            _phantom: PhantomData,
+        })
     }
 }
 
@@ -149,91 +172,49 @@ impl<T: ?Sized> ops::Deref for MutexGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.guard
     }
 }
 impl<T: ?Sized> ops::DerefMut for MutexGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.guard
     }
 }
 impl<T: ?Sized> ops::Deref for RwLockReadGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.guard
     }
 }
 impl<T: ?Sized> ops::Deref for RwLockWriteGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.guard
     }
 }
 impl<T: ?Sized> ops::DerefMut for RwLockWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.guard
     }
 }
 
-#[allow(clippy::exhaustive_enums)]
-pub(crate) enum LockError<G> {
-    Poisoned(G),
-}
+#[derive(Debug)]
+pub(crate) struct TryLockError;
 
-impl<G> LockError<G> {
-    // Not ever actually used at the time being.
-    // pub(crate) fn into_inner(self) -> G {
-    //     match self {
-    //         LockError::Poisoned(g) => g,
-    //     }
-    // }
-}
+impl Error for TryLockError {}
 
-impl<G> Error for LockError<G> {}
-
-impl<G> fmt::Display for LockError<G> {
+impl fmt::Display for TryLockError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Poisoned(_) => write!(f, "lock was poisoned"),
-        }
+        write!(f, "lock is currently locked elsewhere")
     }
 }
 
-impl<G> fmt::Debug for LockError<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Poisoned(_) => f.debug_struct("Poisoned").finish_non_exhaustive(),
-        }
-    }
-}
-
-pub(crate) enum TryLockError<G> {
-    #[cfg_attr(
-        not(feature = "sync"),
-        expect(dead_code, reason = "no poisoning from RefCell")
-    )]
-    Poisoned(G),
-    WouldBlock,
-}
-
-impl<G> Error for TryLockError<G> {}
-
-impl<G> fmt::Display for TryLockError<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Poisoned(_) => write!(f, "lock was poisoned"),
-            Self::WouldBlock => write!(f, "lock is currently locked elsewhere"),
-        }
-    }
-}
-
-impl<G> fmt::Debug for TryLockError<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Poisoned(_) => f.debug_struct("Poisoned").finish_non_exhaustive(),
-            Self::WouldBlock => write!(f, "WouldBlock"),
-        }
+#[cfg(feature = "sync")]
+fn unpoison<T>(result: Result<T, std::sync::PoisonError<T>>) -> T {
+    match result {
+        Ok(guard) => guard,
+        Err(error) => error.into_inner(),
     }
 }

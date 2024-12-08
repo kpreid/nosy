@@ -115,7 +115,7 @@ mod notifier;
 pub use notifier::{Buffer, Notifier, NotifierForwarder};
 
 mod store;
-pub use store::{PoisonError, Store, StoreLock, StoreLockListener};
+pub use store::{Store, StoreLock, StoreLockListener};
 
 mod util;
 pub use util::*;

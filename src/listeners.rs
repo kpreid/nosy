@@ -82,7 +82,7 @@ impl<M> Sink<M> {
     /// ```
     #[must_use]
     pub fn drain(&self) -> Vec<M> {
-        self.messages.write().unwrap().drain(..).collect()
+        self.messages.write().drain(..).collect()
     }
 }
 
@@ -98,7 +98,7 @@ impl<M> fmt::Debug for SinkListener<M> {
 impl<M: Clone + Send + Sync> Listener<M> for SinkListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         if let Some(cell) = self.weak_messages.upgrade() {
-            cell.write().unwrap().extend(messages.iter().cloned());
+            cell.write().extend(messages.iter().cloned());
             true
         } else {
             false

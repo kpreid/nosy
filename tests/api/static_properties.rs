@@ -30,15 +30,16 @@ const _: () = {
         );
     }
 
-    assert_impl_all!(synch::DirtyFlag: Send, Sync);
-    assert_impl_all!(synch::DirtyFlagListener: Send, Sync);
+    assert_impl_all!(synch::DirtyFlag: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::DirtyFlagListener: Send, Sync, RefUnwindSafe, UnwindSafe);
 
-    assert_impl_all!(synch::Filter<fn(()) -> Option<()>, (), 1>: Send, Sync);
+    assert_impl_all!(synch::Filter<fn(()) -> Option<()>, (), 1>: Send, Sync, RefUnwindSafe, UnwindSafe);
 
-    assert_impl_all!(synch::Gate: Send, Sync);
-    assert_impl_all!(synch::GateListener<synch::DirtyFlagListener>: Send, Sync);
+    assert_impl_all!(synch::Gate: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::GateListener<synch::DirtyFlagListener>: Send, Sync, RefUnwindSafe, UnwindSafe);
 
     // Notifier, sync and unsync flavors
+    // TODO: Should a Notifier be UnwindSafe?
     assert_not_impl_any!(synch::unsync::Notifier<()>: Send, Sync);
     assert_not_impl_any!(synch::unsync::Notifier<*const ()>: Send, Sync);
     #[cfg(feature = "sync")]
@@ -59,11 +60,12 @@ const _: () = {
 
     assert_impl_all!(synch::NullListener: Send, Sync, Copy, RefUnwindSafe, UnwindSafe);
 
-    // TODO: PoisonError
-
     assert_send_sync_if_cfg::<synch::Sink<()>>();
     assert_not_impl_any!(synch::Sink<*const ()>: Send, Sync);
+    assert_not_impl_any!(synch::Sink<()>: RefUnwindSafe, UnwindSafe);
+
     assert_send_sync_if_cfg::<synch::SinkListener<()>>();
+    assert_not_impl_any!(synch::SinkListener<()>: RefUnwindSafe, UnwindSafe);
 
     // TODO: StoreLock
     // TODO: StoreLock's lock guard

@@ -81,16 +81,7 @@ impl<T: ?Sized + fmt::Debug> fmt::Debug for StoreLock<T> {
         // It is acceptable to lock the mutex for the same reasons it’s acceptable to lock it
         // during `Listener::receive()`: because it should only be held for short periods
         // and without taking any other locks.
-        let guard;
-        let state: &dyn fmt::Debug = match mutex.lock() {
-            Ok(g) => {
-                guard = g;
-                &&*guard
-            }
-            Err(maybe_sync::LockError::Poisoned { .. }) => &("<poisoned>").refmt(&Unquote),
-        };
-
-        f.debug_tuple("StoreLock").field(state).finish()
+        f.debug_tuple("StoreLock").field(&&*mutex.lock()).finish()
     }
 }
 
@@ -125,15 +116,13 @@ impl<T: ?Sized> StoreLock<T> {
     /// Callers should be careful to hold the lock for a very short time (e.g. only to copy or
     /// [take](core::mem::take) the data) or to do so only while messages will not be arriving.
     ///
-    /// # Errors
+    /// # Panics
     ///
-    /// This method may, but is not guaranteed to, return an error if it is called after a previous
-    /// operation with the lock held panicked.
-    ///
-    /// If it is called while the same thread has already acquired the lock, it may panic or hang.
-    pub fn lock(&self) -> Result<impl core::ops::DerefMut<Target = T> + use<'_, T>, PoisonError> {
-        // TODO: make poison tracking guaranteed by using a RefCell-with-poison
-        self.0.lock().map_err(|_| PoisonError)
+    /// If it is called while the same thread has already acquired the lock, it may panic or hang,
+    /// depending on the mutex implementation in use.
+    #[must_use]
+    pub fn lock(&self) -> impl core::ops::DerefMut<Target = T> + use<'_, T> {
+        self.0.lock()
     }
 
     /// Delivers messages like `self.listener().receive(messages)`,
@@ -163,40 +152,12 @@ fn receive_bare_mutex<M, T: ?Sized + Store<M>>(
     mutex: &maybe_sync::Mutex<T>,
     messages: &[M],
 ) -> bool {
-    match mutex.lock() {
-        Ok(mut state) => {
-            state.receive(messages);
-            true
-        }
-        Err(maybe_sync::LockError::Poisoned { .. }) => {
-            // If the mutex is poisoned, then the state is corrupted and it is not useful
-            // to further modify it. The poisoning itself will communicate all there is to say.
-            false
-        }
-    }
+    mutex.lock().receive(messages);
+    true
 }
 
 // TODO: Provide an alternative to `StoreLock` which doesn't hand out access to the mutex
 // but only swaps.
-
-// -------------------------------------------------------------------------------------------------
-
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
-/// Error from [`StoreLock::lock()`] when a previous operation panicked.
-///
-/// This is similar to [`std::sync::PoisonError`], but does not allow bypassing the poison
-/// indication.
-#[allow(clippy::exhaustive_structs)]
-#[derive(Clone, Copy, Debug)]
-pub struct PoisonError;
-
-impl fmt::Display for PoisonError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "a previous operation on this lock panicked")
-    }
-}
-
-impl core::error::Error for PoisonError {}
 
 // -------------------------------------------------------------------------------------------------
 
@@ -259,15 +220,12 @@ mod tests {
 
         // Receive one message and see it added to the initial state
         assert_eq!(listener.receive(&["foo"]), true);
-        assert_eq!(mem::take(&mut *sl.lock().unwrap()), vec!["initial", "foo"]);
+        assert_eq!(mem::take(&mut *sl.lock()), vec!["initial", "foo"]);
 
         // Receive multiple messages in multiple batches
         assert_eq!(listener.receive(&["bar", "baz"]), true);
         assert_eq!(listener.receive(&["separate"]), true);
-        assert_eq!(
-            mem::take(&mut *sl.lock().unwrap()),
-            vec!["bar", "baz", "separate"]
-        );
+        assert_eq!(mem::take(&mut *sl.lock()), vec!["bar", "baz", "separate"]);
 
         // Receive after drop
         drop(sl);
@@ -280,33 +238,32 @@ mod tests {
         sl.receive(&["from inherent receive"]);
 
         assert_eq!(
-            mem::take(&mut *sl.lock().unwrap()),
+            mem::take(&mut *sl.lock()),
             vec!["initial", "from inherent receive"]
         );
     }
 
+    /// For consistency with `no_std` mode, we *do not* offer mutex poisoning,
+    /// even if the underlying implementation does.
+    /// In exchange, the guard is not `UnwindSafe` either.
     #[test]
-    fn store_lock_poisoned() {
+    fn store_lock_not_poisoned() {
         let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
         let listener = sl.listener();
 
-        // Poison the mutex by panicking inside it
-        // TODO: Get rid of this `AssertUnwindSafe` by making `StoreLock` *always* (rather than
-        // conditionally) `RefUnwindSafe`
+        // Try to poison the mutex by panicking inside it
         let _ = std::panic::catch_unwind(core::panic::AssertUnwindSafe(|| {
             let _guard = sl.lock();
             panic!("poison");
         }));
 
-        // Listener does not panic, and returns false.
-        assert_eq!(listener.receive(&["foo"]), false);
+        // Listener still works.
+        assert_eq!(listener.receive(&["foo"]), true);
 
-        // Inherent receive does not panic, but does nothing.
+        // Inherent receive still works.
         sl.receive(&["bar"]);
 
-        // Access to lock is poisoned
-        // TODO: This property is not guaranteed, but should be.
-        //
-        // assert!(sl.lock().is_err());
+        // Locking still works.
+        assert_eq!(mem::take(&mut *sl.lock()), vec!["initial", "foo", "bar"]);
     }
 }

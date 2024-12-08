@@ -96,7 +96,7 @@ impl<M, L: Listener<M>> Notifier<M, L> {
         for NotifierEntry {
             listener,
             was_alive,
-        } in self.listeners.read().unwrap().iter()
+        } in self.listeners.read().iter()
         {
             // Don't load was_alive before sending, because we assume the common case is that
             // a listener implements receive() cheaply when it is dead.
@@ -121,7 +121,7 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// This operation is intended for testing and diagnostic purposes.
     pub fn count(&self) -> usize {
-        let mut listeners = self.listeners.write().unwrap();
+        let mut listeners = self.listeners.write();
         Self::cleanup(&mut listeners);
         listeners.len()
     }
@@ -152,7 +152,7 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
             // skip adding it if it's already dead
             return;
         }
-        let mut listeners = self.listeners.write().unwrap();
+        let mut listeners = self.listeners.write();
         // TODO: consider amortization by not doing cleanup every time
         Self::cleanup(&mut listeners);
         listeners.push(NotifierEntry {
