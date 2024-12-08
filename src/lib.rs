@@ -164,8 +164,7 @@ pub mod unsync {
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::DynListener`] instead.
     //---
-    // TODO: try making this only Rc instead of Arc
-    pub type DynListener<M> = alloc::sync::Arc<dyn Listener<M>>;
+    pub type DynListener<M> = alloc::rc::Rc<dyn Listener<M>>;
 
     /// Message broadcaster.
     ///

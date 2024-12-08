@@ -3,7 +3,6 @@
     reason = "false positive; TODO: remove after Rust 1.84 is released"
 )]
 
-use alloc::sync::Arc;
 use core::fmt;
 
 use crate::{Filter, Gate};
@@ -86,7 +85,7 @@ pub trait Listener<M>: fmt::Debug {
     where
         Self: Sized + 'static,
     {
-        Arc::new(self)
+        alloc::rc::Rc::new(self)
     }
 
     /// Convert this listener into trait object form, allowing it to be stored in
@@ -101,7 +100,7 @@ pub trait Listener<M>: fmt::Debug {
     where
         Self: Sized + Send + Sync + 'static,
     {
-        Arc::new(self)
+        alloc::sync::Arc::new(self)
     }
 
     /// Wraps `self` so to apply a map/filter function (similar to [`Iterator::filter_map()`])
@@ -219,9 +218,10 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
         (**self).receive(messages)
     }
 
-    fn erased_unsync(self) -> crate::unsync::DynListener<M> {
-        self
-    }
+    // erased_unsync() will result in double-wrapping.
+    // That could be avoided by using `Arc` even for `unsync::DynListener`,
+    // but that should be a rare case which is not worth the benefit of avoiding
+    // unnecessary atomic operations when feature = "sync" isn't even enabled.
 
     fn erased_sync(self) -> crate::sync::DynListener<M> {
         self
@@ -282,6 +282,30 @@ impl<T: Listen> Listen for &T {
         (**self).listen(listener)
     }
 }
+impl<T: Listen> Listen for &mut T {
+    type Msg = T::Msg;
+    type Listener = T::Listener;
+
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+        (**self).listen(listener)
+    }
+}
+impl<T: Listen> Listen for alloc::boxed::Box<T> {
+    type Msg = T::Msg;
+    type Listener = T::Listener;
+
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+        (**self).listen(listener)
+    }
+}
+impl<T: Listen> Listen for alloc::rc::Rc<T> {
+    type Msg = T::Msg;
+    type Listener = T::Listener;
+
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+        (**self).listen(listener)
+    }
+}
 impl<T: Listen> Listen for alloc::sync::Arc<T> {
     type Msg = T::Msg;
     type Listener = T::Listener;
@@ -296,19 +320,19 @@ impl<T: Listen> Listen for alloc::sync::Arc<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::unsync::DynListener;
     use crate::Sink;
+    use alloc::rc::Rc;
     use alloc::{format, vec};
 
     #[test]
     fn erased_listener() {
         let sink = Sink::new();
-        let listener: DynListener<&str> = sink.listener().erased_unsync();
+        let listener: crate::unsync::DynListener<&str> = sink.listener().erased_unsync();
 
         // Should not gain a new wrapper when erased() again.
         assert_eq!(
-            Arc::as_ptr(&listener),
-            Arc::as_ptr(&listener.clone().erased_unsync())
+            Rc::as_ptr(&listener),
+            Rc::as_ptr(&listener.clone().erased_unsync())
         );
 
         // Should report alive (and not infinitely recurse).
@@ -326,9 +350,19 @@ mod tests {
 
     /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
     #[test]
-    fn dyn_listener_debug() {
+    fn dyn_listener_debug_unsync() {
         let sink: Sink<&str> = Sink::new();
-        let listener: DynListener<&str> = Arc::new(sink.listener());
+        let listener: crate::unsync::DynListener<&str> = Rc::new(sink.listener());
+
+        assert_eq!(format!("{listener:?}"), "SinkListener { alive: true, .. }");
+    }
+
+    /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
+    #[cfg(feature = "sync")]
+    #[test]
+    fn dyn_listener_debug_sync() {
+        let sink: Sink<&str> = Sink::new();
+        let listener: crate::sync::DynListener<&str> = alloc::sync::Arc::new(sink.listener());
 
         assert_eq!(format!("{listener:?}"), "SinkListener { alive: true, .. }");
     }
