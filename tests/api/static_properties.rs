@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "TODO: why is this counted dead and how do we stop it?"
+)]
 use std::panic::{RefUnwindSafe, UnwindSafe};
 
 use static_assertions::{assert_impl_all, assert_not_impl_any};
@@ -30,31 +34,34 @@ const _: () = {
         );
     }
 
-    assert_impl_all!(synch::DirtyFlag: Send, Sync, RefUnwindSafe, UnwindSafe);
-    assert_impl_all!(synch::DirtyFlagListener: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::DirtyFlag: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::DirtyFlagListener: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
-    assert_impl_all!(synch::Filter<fn(()) -> Option<()>, (), 1>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::Filter<fn(()) -> Option<()>, (), 1>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
-    assert_impl_all!(synch::Gate: Send, Sync, RefUnwindSafe, UnwindSafe);
-    assert_impl_all!(synch::GateListener<synch::DirtyFlagListener>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::Gate: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::GateListener<synch::DirtyFlagListener>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
-    // Notifier, sync and unsync flavors
-    // TODO: Should a Notifier be UnwindSafe?
-    assert_not_impl_any!(synch::unsync::Notifier<()>: Send, Sync);
+    // Notifier, sync and unsync flavors.
+    // Always not RefUnwindSafe
+    assert_impl_all!(synch::unsync::Notifier<()>: Unpin);
+    assert_not_impl_any!(synch::unsync::Notifier<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
     assert_not_impl_any!(synch::unsync::Notifier<*const ()>: Send, Sync);
     #[cfg(feature = "sync")]
     {
-        assert_impl_all!(synch::sync::Notifier<()>: Send, Sync);
+        assert_impl_all!(synch::sync::Notifier<()>: Send, Sync, Unpin);
         // A Notifier with a !Send + !Sync message type is still Send + Sync
         // because it does not *contain* the messages.
         assert_impl_all!(synch::sync::Notifier<*const ()>: Send, Sync);
+        assert_not_impl_any!(synch::sync::Notifier<()>: RefUnwindSafe, UnwindSafe);
     }
 
+    assert_impl_all!(synch::unsync::NotifierForwarder<()>: Unpin);
     assert_not_impl_any!(synch::unsync::NotifierForwarder<()>: Send, Sync);
     assert_not_impl_any!(synch::unsync::NotifierForwarder<*const ()>: Send, Sync);
     #[cfg(feature = "sync")]
     {
-        assert_impl_all!(synch::sync::NotifierForwarder<()>: Send, Sync);
+        assert_impl_all!(synch::sync::NotifierForwarder<()>: Send, Sync, Unpin);
         assert_impl_all!(synch::sync::NotifierForwarder<*const ()>: Send, Sync);
     }
 
@@ -67,7 +74,19 @@ const _: () = {
     assert_send_sync_if_cfg::<synch::SinkListener<()>>();
     assert_not_impl_any!(synch::SinkListener<()>: RefUnwindSafe, UnwindSafe);
 
-    // TODO: StoreLock
+    assert_impl_all!(synch::StoreLock<Vec<()>>: Unpin);
+    assert_not_impl_any!(synch::StoreLock<Vec<()>>: RefUnwindSafe, UnwindSafe);
+    #[cfg(feature = "sync")]
+    {
+        assert_impl_all!(synch::StoreLock<Vec<()>>: Send, Sync);
+    }
+
     // TODO: StoreLock's lock guard
-    // TODO: StoreLockListener
+
+    assert_impl_all!(synch::StoreLockListener<Vec<()>>: Unpin);
+    assert_not_impl_any!(synch::StoreLockListener<Vec<()>>: RefUnwindSafe, UnwindSafe);
+    #[cfg(feature = "sync")]
+    {
+        assert_impl_all!(synch::StoreLockListener<Vec<()>>: Send, Sync);
+    }
 };

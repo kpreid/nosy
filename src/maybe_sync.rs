@@ -1,6 +1,5 @@
 use core::error::Error;
 use core::marker::PhantomData;
-use core::panic::UnwindSafe;
 use core::{fmt, ops};
 
 /// Wrapper around [`core::cell::RefCell`] or [`std::sync::Mutex`] depending on whether
@@ -15,8 +14,9 @@ use core::{fmt, ops};
 #[must_use]
 pub(crate) struct Mutex<T: ?Sized> {
     /// We want to be *not* `RefUnwindSafe`, just like `RefCell` is not.
-    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously.
-    _phantom: PhantomData<dyn Send + Sync + UnwindSafe>,
+    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously
+    /// by taking advantage of `dyn`’s “nothing but what you specify”.
+    _phantom: PhantomData<dyn Send + Sync + Unpin /* + !UnwindSafe + !RefUnwindSafe */>,
 
     lock: InnerMutex<T>,
 }
@@ -39,8 +39,9 @@ pub(crate) struct MutexGuard<'a, T: ?Sized> {
 #[derive(Default)]
 pub(crate) struct RwLock<T: ?Sized> {
     /// We want to be *not* `RefUnwindSafe`, just like `RefCell` is not.
-    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously.
-    _phantom: PhantomData<dyn Send + Sync + UnwindSafe /* + !RefUnwindSafe */>,
+    /// Since `RefUnwindSafe` is an auto trait, we have to do this circuitously
+    /// by taking advantage of `dyn`’s “nothing but what you specify”.
+    _phantom: PhantomData<dyn Send + Sync + Unpin /* + !UnwindSafe + !RefUnwindSafe */>,
 
     lock: InnerRwLock<T>,
 }
