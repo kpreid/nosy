@@ -9,7 +9,7 @@ use core::fmt;
 use crate::{Filter, Gate};
 
 #[cfg(doc)]
-use crate::{FnListener, Notifier, Store, StoreLock};
+use crate::{Notifier, Store, StoreLock};
 
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// A receiver of messages (typically from something implementing [`Listen`]) which can
