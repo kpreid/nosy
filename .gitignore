@@ -1,2 +1,7 @@
+# Files created by cargo
 /target
 Cargo.lock
+
+# Files created by cargo-mutants
+/mutants.out/
+/mutants.out.old/

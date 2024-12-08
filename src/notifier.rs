@@ -131,7 +131,8 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     }
 
     /// Discard all dead weak pointers in `listeners`.
-    pub(crate) fn cleanup(listeners: &mut Vec<NotifierEntry<L>>) {
+    #[mutants::skip] // there are many ways to subtly break this
+    fn cleanup(listeners: &mut Vec<NotifierEntry<L>>) {
         let mut i = 0;
         while i < listeners.len() {
             let entry = &listeners[i];
