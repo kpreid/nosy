@@ -190,6 +190,19 @@ impl DirtyFlag {
     /// This is equivalent to `self.listener().receive(())`, but more efficient.
     /// It may be useful in situations where the caller of `get_and_clear()` realizes it cannot
     /// actually complete its work.
+    ///
+    /// ```
+    /// # let flag = synch::DirtyFlag::new(true);
+    /// # fn try_to_do_the_thing() -> bool { false }
+    /// #
+    /// if flag.get_and_clear() {
+    ///     if !try_to_do_the_thing() {
+    ///         flag.set();
+    ///     }
+    /// # } else { unreachable!();
+    /// }
+    /// # assert!(flag.get_and_clear());
+    /// ```
     #[inline]
     pub fn set(&self) {
         self.flag.store(true, Ordering::Relaxed);
