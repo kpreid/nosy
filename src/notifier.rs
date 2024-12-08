@@ -24,7 +24,7 @@ use crate::{IntoDynListener, Listen, Listener};
 /// Message broadcaster.
 ///
 /// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
-/// of type `L`. `L` is usually a trait object type such as `Arc<dyn Listener>`.
+/// of type `L`. `L` is usually a trait object type such as `Arc<dyn Listener + Send + Sync>`.
 ///
 /// The `Notifier` is usually owned by some entity which emits messages when it changes.
 /// [`Listener`]s may be added using the [`Listen`] implementation, and are removed when

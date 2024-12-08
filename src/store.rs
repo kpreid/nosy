@@ -3,13 +3,12 @@
     reason = "false positive; TODO: remove after Rust 1.84 is released"
 )]
 
-use alloc::sync::{Arc, Weak};
 use core::fmt;
 
 use manyfmt::formats::Unquote;
 use manyfmt::Refmt as _;
 
-use crate::maybe_sync;
+use crate::maybe_sync::{self, MaRc, MaWeak};
 use crate::Listener;
 
 /// A data structure which records received messages for later processing.
@@ -67,12 +66,12 @@ pub trait Store<M> {
 ///
 /// This value is referred to as the “state”, and it is kept inside a mutex.
 #[derive(Default)]
-pub struct StoreLock<T: ?Sized>(Arc<maybe_sync::Mutex<T>>);
+pub struct StoreLock<T: ?Sized>(MaRc<maybe_sync::Mutex<T>>);
 
 /// [`StoreLock::listener()`] implementation.
 ///
 /// You should not usually need to use this type explicitly.
-pub struct StoreLockListener<T: ?Sized>(Weak<maybe_sync::Mutex<T>>);
+pub struct StoreLockListener<T: ?Sized>(MaWeak<maybe_sync::Mutex<T>>);
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for StoreLock<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -100,7 +99,7 @@ impl<T: ?Sized> fmt::Debug for StoreLockListener<T> {
 impl<T> StoreLock<T> {
     /// Construct a new [`StoreLock`] with the given initial state.
     pub fn new(initial_state: T) -> Self {
-        Self(Arc::new(maybe_sync::Mutex::new(initial_state)))
+        Self(MaRc::new(maybe_sync::Mutex::new(initial_state)))
     }
 }
 
@@ -108,7 +107,7 @@ impl<T: ?Sized> StoreLock<T> {
     /// Returns a [`Listener`] which delivers messages to this.
     #[must_use]
     pub fn listener(&self) -> StoreLockListener<T> {
-        StoreLockListener(Arc::downgrade(&self.0))
+        StoreLockListener(MaRc::downgrade(&self.0))
     }
 
     /// Locks and returns access to the state.

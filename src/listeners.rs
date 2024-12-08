@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::maybe_sync::RwLock;
+use crate::maybe_sync::{MaRc, MaWeak, RwLock};
 use crate::{Listen, Listener};
 
 // -------------------------------------------------------------------------------------------------
@@ -43,12 +43,12 @@ where
 /// This is only intended for testing.
 #[derive(Debug)]
 pub struct Sink<M> {
-    messages: Arc<RwLock<VecDeque<M>>>,
+    messages: MaRc<RwLock<VecDeque<M>>>,
 }
 
 /// [`Sink::listener()`] implementation.
 pub struct SinkListener<M> {
-    weak_messages: Weak<RwLock<VecDeque<M>>>,
+    weak_messages: MaWeak<RwLock<VecDeque<M>>>,
 }
 
 impl<M> Sink<M> {
@@ -56,7 +56,7 @@ impl<M> Sink<M> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            messages: Arc::new(RwLock::new(VecDeque::new())),
+            messages: MaRc::new(RwLock::new(VecDeque::new())),
         }
     }
 
@@ -64,7 +64,7 @@ impl<M> Sink<M> {
     #[must_use]
     pub fn listener(&self) -> SinkListener<M> {
         SinkListener {
-            weak_messages: Arc::downgrade(&self.messages),
+            weak_messages: MaRc::downgrade(&self.messages),
         }
     }
 
@@ -128,6 +128,13 @@ impl<M> Default for Sink<M> {
 /// until cleared.
 ///
 /// It is implemented as a shared [`AtomicBool`].
+/// It is [`Send`] and [`Sync`] regardless of whether the `"sync"` crate feature is enabled.
+///
+/// The atomic orderings used are [`Release`](Ordering::Release) for setting the flag and
+/// [`Acquire`](Ordering::Acquire) for reading it.
+/// We do not recommend relying on this as your sole source of synchronization in unsafe code,
+/// but this does mean that if the notification is carried across threads then the recipient
+/// can rely on seeing effects that happened before the flag was set.
 pub struct DirtyFlag {
     flag: Arc<AtomicBool>,
 }
@@ -146,6 +153,9 @@ pub struct DirtyFlagListener {
 }
 
 impl DirtyFlag {
+    const SET_ORDERING: Ordering = Ordering::Release;
+    const GET_CLEAR_ORDERING: Ordering = Ordering::Acquire;
+
     /// Constructs a new [`DirtyFlag`] with the given initial value.
     #[must_use]
     pub fn new(value: bool) -> Self {
@@ -182,7 +192,7 @@ impl DirtyFlag {
     #[allow(clippy::must_use_candidate)]
     #[inline]
     pub fn get_and_clear(&self) -> bool {
-        self.flag.swap(false, Ordering::Acquire)
+        self.flag.swap(false, Self::GET_CLEAR_ORDERING)
     }
 
     /// Set the flag value to [`true`].
@@ -205,14 +215,14 @@ impl DirtyFlag {
     /// ```
     #[inline]
     pub fn set(&self) {
-        self.flag.store(true, Ordering::Relaxed);
+        self.flag.store(true, Self::SET_ORDERING);
     }
 }
 impl<M> Listener<M> for DirtyFlagListener {
     fn receive(&self, messages: &[M]) -> bool {
         if let Some(cell) = self.weak_flag.upgrade() {
             if !messages.is_empty() {
-                cell.store(true, Ordering::Release);
+                cell.store(true, DirtyFlag::SET_ORDERING);
             }
             true
         } else {

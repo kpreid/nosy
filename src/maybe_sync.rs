@@ -2,6 +2,19 @@ use core::error::Error;
 use core::marker::PhantomData;
 use core::{fmt, ops};
 
+// Maybe Arc, maybe Rc.
+// Since both types are in `alloc`, the only thing this saves is atomic refcounting operations,
+// but we might as well.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "sync")] {
+        pub(crate) type MaRc<T> = alloc::sync::Arc<T>;
+        pub(crate) type MaWeak<T> = alloc::sync::Weak<T>;
+    } else {
+        pub(crate) type MaRc<T> = alloc::rc::Rc<T>;
+        pub(crate) type MaWeak<T> = alloc::rc::Weak<T>;
+    }
+}
+
 /// Wrapper around [`core::cell::RefCell`] or [`std::sync::Mutex`] depending on whether
 /// the `std` feature is enabled.
 ///

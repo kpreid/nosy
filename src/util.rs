@@ -102,6 +102,9 @@ where
 /// Construct this using [`Listener::gate()`], or if a placeholder instance with no
 /// effect is required, [`Gate::default()`]. Then, drop the [`Gate`] when no more messages
 /// should be delivered.
+///
+/// [`Gate`] and [`GateListener`] are [`Send`] and [`Sync`] regardless of whether the `"sync"`
+/// crate feature is enabled.
 #[derive(Clone, Default)]
 pub struct Gate {
     /// By owning this we keep its [`Weak`] peers alive, and thus the [`GateListener`] active.
