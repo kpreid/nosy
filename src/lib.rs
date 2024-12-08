@@ -142,6 +142,12 @@ pub mod sync {
     /// This type is [`Send`] and [`Sync`] and therefore requires all its [`Listener`]s to be so.
     /// When this requirement is undesired, use [`unsync::Notifier`] instead.
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
+
+    /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Notifier`] be so.
+    /// When this requirement is undesired, use [`unsync::NotifierForwarder`] instead.
+    pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
@@ -166,6 +172,12 @@ pub mod unsync {
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::Notifier`] instead.
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
+
+    /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
+    ///
+    /// This type is not [`Send`] or [`Sync`]. When that is needed, use
+    /// [`sync::NotifierForwarder`] instead.
+    pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
 }
 
 // mod sync_if_possible {
