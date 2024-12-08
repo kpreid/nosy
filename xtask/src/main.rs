@@ -11,6 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cargo(sh).args(["test", "--features=std"]).run()?;
             cargo(sh).args(["test", "--features=sync"]).run()?;
             cargo(sh).args(["test", "--all-features"]).run()?;
+            cargo(sh).args(["clippy", "--all-features"]).run()?;
             cargo(sh).args(["doc"]).run()?;
         }
         _ => {
