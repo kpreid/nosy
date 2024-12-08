@@ -39,14 +39,17 @@ pub trait Store<M> {
     ///   it were the only message provided.
     ///   If the slice is empty, there should be no observable effect.
     ///
-    /// * This method should not panic under any possible incoming message stream,
+    /// * Do not panic under any possible incoming message stream,
     ///   in order to ensure the sender's other work is not interfered with.
     ///
-    /// * This method should not attempt to acquire any locks, for performance and to avoid
+    /// * Do not acquire any locks, for performance and to avoid
     ///   deadlock with locks held by the sender.
     ///   (Normally, locking is to be provided separately, e.g. by [`StoreLock`].)
     ///  
-    /// * This method should not perform any blocking operation.
+    /// * Do not perform any blocking operation except for such locks.
+    ///
+    /// * Do not access thread-local state, since this may be called from whichever thread(s)
+    ///   the sender is using.
     ///
     /// # Advice for implementors
     ///

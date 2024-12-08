@@ -37,15 +37,23 @@ pub trait Listener<M>: fmt::Debug {
     ///
     /// # Requirements on implementors
     ///
-    /// Messages are provided in a batch for efficiency of dispatch.
-    /// Each message in the provided slice should be processed exactly the same as if
-    /// it were the only message provided.
-    /// If the slice is empty, there should be no observable effect.
+    /// * Messages are provided in a batch for efficiency of dispatch.
+    ///   Each message in the provided slice should be processed exactly the same as if
+    ///   it were the only message provided.
+    ///   If the slice is empty, there should be no observable effect.
     ///
-    /// This method should not panic under any circumstances, in order to ensure the sender's
-    /// other work is not interfered with.
-    /// For example, if the listener accesses a poisoned mutex, it should do nothing or clear
-    /// the poison, rather than panicking.
+    /// * Do not panic under any possible incoming message stream,
+    ///   in order to ensure the sender's other work is not interfered with.
+    ///   For example, if the listener accesses a poisoned mutex, it should do nothing or clear
+    ///   the poison, rather than panicking.
+    ///
+    /// * Do not acquire any locks except ones which are used only for the state of the
+    ///   listener itself.
+    ///  
+    /// * Do not perform any blocking operation except for such locks.
+    ///
+    /// * Do not access thread-local state, since this may be called from whichever thread(s)
+    ///   the sender is using.
     ///
     /// # Advice for implementors
     ///
