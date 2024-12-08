@@ -184,11 +184,13 @@ impl<M, L> fmt::Debug for Notifier<M, L> {
 
 // -------------------------------------------------------------------------------------------------
 
-/// A batch of messages of type `M` to be sent through a [`Notifier`].
+/// Buffers messages that are to be sent through a [`Notifier`], for efficiency.
 ///
-/// Messages may be added to the buffer, and when the buffer is full or when it is dropped,
-/// they are sent through the notifier. Creating such a batch is intended to increase performance
-/// by not executing dynamic dispatch to every notifier for every message.
+/// Messages of type `M` may be added to the buffer, and when the buffer contains
+/// `CAPACITY` messages or when it is dropped,
+/// they are all sent through [`Notifier::notify_many()`] at once.
+/// This is intended to increase performance by invoking each listener once per batch
+/// instead of once per message.
 #[derive(Debug)]
 pub struct Buffer<'notifier, M, L, const CAPACITY: usize>
 where
@@ -210,6 +212,10 @@ where
     }
 
     /// Store a message in this buffer, to be delivered later as if by [`Notifier::notify()`].
+    ///
+    /// If the buffer becomes full when this message is added, then the messages in the buffer will
+    /// be delivered before `push()` returns.
+    /// Otherwise, they will be delivered when the [`Buffer`] is dropped.
     pub fn push(&mut self, message: M) {
         // We don't need to check for fullness before pushing, because we always flush immediately
         // if full.

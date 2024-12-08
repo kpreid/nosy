@@ -175,8 +175,10 @@ impl<M> Default for Sink<M> {
 
 // -------------------------------------------------------------------------------------------------
 
-/// A [`Listener`] destination which only stores a single flag indicating if any messages
-/// were received.
+/// A [`Listener`] destination which records only whether any messages have been received,
+/// until cleared.
+///
+/// It is implemented as a shared [`AtomicBool`].
 pub struct DirtyFlag {
     flag: Arc<AtomicBool>,
 }
@@ -236,8 +238,9 @@ impl DirtyFlag {
 
     /// Set the flag value to [`true`].
     ///
-    /// Usually a [`DirtyFlagListener`] is used instead of this, but it may be useful
-    /// in complex situations.
+    /// This is equivalent to `self.listener().receive(())`, but more efficient.
+    /// It may be useful in situations where the caller of `get_and_clear()` realizes it cannot
+    /// actually complete its work.
     #[inline]
     pub fn set(&self) {
         self.flag.store(true, Ordering::Relaxed);

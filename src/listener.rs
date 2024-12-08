@@ -96,7 +96,8 @@ pub trait Listener<M>: fmt::Debug {
         Arc::new(self)
     }
 
-    /// Apply a map/filter function (similar to [`Iterator::filter_map()`]) to incoming messages.
+    /// Wraps `self` so to apply a map/filter function (similar to [`Iterator::filter_map()`])
+    /// to incoming messages, to discard uninteresting messages and transform interesting ones.
     ///
     /// Note: By default, this filter breaks up all message batching into batches of 1.
     /// In order to avoid this and have more efficient message delivery, use
@@ -104,7 +105,29 @@ pub trait Listener<M>: fmt::Debug {
     /// This is unnecessary if `size_of::<M>() == 0`; the buffer is automatically unbounded in
     /// that case.
     ///
-    /// TODO: Doc test
+    /// # Example
+    ///
+    /// ```
+    /// use synch::{unsync::Notifier, DirtyFlag, Listen as _, Listener as _};
+    ///
+    /// let notifier = Notifier::new();
+    /// let flag = DirtyFlag::new(false);
+    /// notifier.listen(flag.listener().filter(|&msg: &i32| {
+    ///     if msg >= 0 {
+    ///         Some(())
+    ///     } else {
+    ///         None
+    ///     }
+    /// }));
+    ///
+    /// // This message is filtered out.
+    /// notifier.notify(-1);
+    /// assert_eq!(flag.get_and_clear(), false);
+    ///
+    /// // This message is passed through:
+    /// notifier.notify(2);
+    /// assert_eq!(flag.get_and_clear(), true);
+    /// ```
     fn filter<MI, F>(self, function: F) -> Filter<F, Self, 1>
     where
         Self: Sized,
@@ -122,7 +145,7 @@ pub trait Listener<M>: fmt::Debug {
     /// This may be used to stop forwarding messages when a dependency no longer exists.
     ///
     /// ```
-    /// use synch::{Listen, Listener, Gate, Sink};
+    /// use synch::{Gate, Listen as _, Listener as _, Sink};
     ///
     /// let sink = Sink::new();
     /// let (gate, gated) = sink.listener().gate();

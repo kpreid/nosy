@@ -14,9 +14,10 @@ use crate::Listener;
 
 /// A data structure which records received messages for later processing.
 ///
-/// Its role is similar to [`Listener`], except that it is permitted and expected to mutate itself,
-/// but **should not** communicate outside itself. A [`Listener`] is a sort of channel by which to
-/// transmit messages; a `Store` is a data structure which is a destination for messages.
+/// Its role is similar to [`Listener`], except that it is permitted and expected to `&mut` mutate
+/// itself, but **should not** communicate outside itself.
+/// A [`Listener`] is a sort of channel by which to transmit messages;
+/// a `Store` is a data structure which is a destination for messages.
 ///
 /// After implementing `Store`, wrap it in a [`StoreLock`] to make use of it.
 ///

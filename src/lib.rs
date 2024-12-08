@@ -1,16 +1,44 @@
 #![no_std]
 
-//! Library for broadcasting of notifications of state changes, and other messages.
+//! Library for broadcasting messages/events such as change notifications.
 //!
-//! To send notifications, create a [`Notifier`], which manages a collection of [`Listener`]s.
-//! Each listener reports when it is no longer needed and may be discarded.
+//! # What this library does
 //!
-//! When [`Notifier::notify()`] is called to send a message, it is synchronously delivered
-//! to all listeners; therefore, listeners are obligated to avoid doing significant work or
-//! cause cascading state changes.
-//! The recommended pattern is to use listener implementors such as [`DirtyFlag`] or [`StoreLock`],
-//! which aggregate incoming messages, to be read and cleared by a task running on a more
-//! appropriate schedule.
+//! The niche which this library seeks to fill is: delivering precise change notifications
+//! (e.g. “these particular elements of this collection have changed”) from a data source
+//! to a set of listeners (observers) in such a way that there is
+//!
+//! * no unbounded buffering of messages (as an unbounded channel would have),
+//! * no blocking/suspending (as a bounded channel would have),
+//! * and yet also, no execution of further application logic while the message is being delivered
+//!   (as plain event-listener registration would have).
+//!
+//! The tradeoff we make in order to achieve this is that message delivery does involve execution
+//! of a *small* amount of code on behalf of each [`Listener`];
+//! this code is responsible for deciding whether the message is of interest, and if so, storing it
+//! for later reading.
+//! For example, a listener might `match` a message enum, and in cases where it is of interest,
+//! [set an `AtomicBool` to true](DirtyFlag). The final recipient would then use that boolean flag
+//! to determine that it needs to re-read the data which the messages are about.
+//! Thus, the message itself need not be stored until the final recipient gets to it,
+//! and multiple messages are de-duplicated.
+//!
+//! In a loose sense, each listener is itself a sort of channel sender;
+//! it is written when the message is sent, and to be useful, it must have shared state with
+//! some receiving side which reads (and clears) that shared state.
+//! Because of this, this library is not a good choice if you expect to have very many listeners
+//! of the same character (e.g. many identical worker tasks updating their state); in those cases,
+//! you would probably be better off using a conventional broadcast channel or watch channel.
+//!
+//! # Getting started
+//!
+//! To send messages, create a [`Notifier`], which manages a collection of [`Listener`]s.
+//!
+//! To receive messages, create a [`Listener`], then use the [`Listen`] trait to register it with
+//! a [`Notifier`] or something which contains a [`Notifier`].
+//! When possible, you should use existing [`Listener`] implementations such as [`DirtyFlag`] or
+//! [`StoreLock`] which have been designed to be well-behaved, but it is also reasonable
+//! to write your own implementation, as long as it obeys the documented requirements.
 //!
 //! # Features and platform requirements
 //!
@@ -26,7 +54,10 @@
 //!   Without this feature, only `core` and `alloc` types are used.
 //! * `"sync"`:
 //!   Adds [`Sync`] functionality for delivering messages across threads;
-//!   in particular, the [`sync`] module, and `Notifier: Sync` (when possible).
+//!   in particular, the
+#![cfg_attr(feature = "sync", doc = "   [`sync`]")]
+#![cfg_attr(not(feature = "sync"), doc = "   `sync`")]
+//!   module, and `Notifier: Sync` (when possible).
 
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
@@ -91,7 +122,7 @@ pub use util::*;
 
 // -------------------------------------------------------------------------------------------------
 
-/// Type aliases for use when listeners are expected to implement [`Sync`].
+/// Type aliases for use in applications where listeners are expected to implement [`Sync`].
 #[cfg(feature = "sync")]
 #[path = "sync_or_not/"]
 #[allow(clippy::duplicate_mod)]
@@ -113,7 +144,7 @@ pub mod sync {
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 }
 
-/// Type aliases for use when listeners are not expected to implement [`Sync`].
+/// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
 #[path = "sync_or_not/"]
 #[allow(clippy::duplicate_mod)]
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]

@@ -6,18 +6,18 @@ use manyfmt::Refmt as _;
 
 use crate::Listener;
 
-/// A [`Listener`] which transforms or discards messages before passing them on.
-/// Construct this using [`Listener::filter`].
+/// A [`Listener`] which transforms or discards messages before passing them on to another
+/// [`Listener`].
 ///
-/// This may be used to drop uninteresting messages or reduce their granularity.
+/// Construct this by calling [`Listener::filter()`]; see its documentation for more information.
 ///
 /// * `F` is the type of the filter function to use.
 /// * `T` is the type of the listener to pass filtered messages to.
 /// * `BATCH` is the maximum number of filtered messages to gather before passing them on.
 ///   It is used as the size of a stack-allocated array, so should be chosen with the size of
 ///   the message type in mind.
-///
-/// TODO: add doc test
+//---
+// Example/doc-test is in `filter()`
 pub struct Filter<F, T, const BATCH: usize> {
     /// The function to transform and possibly discard each message.
     pub(super) function: F,
