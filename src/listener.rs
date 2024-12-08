@@ -15,10 +15,11 @@ use crate::{Notifier, Store, StoreLock};
 /// indicate when it is no longer interested in them (typically because the associated
 /// recipient has been dropped).
 ///
-/// Listeners are typically used in trait object form, which may be created by calling
-/// [`erased_unsync()`](Self::erased_unsync) or [`erased_sync()`](Self::erased_sync);
-/// this is done implicitly by [`Notifier`], but calling it earlier may in some cases
-/// be useful to minimize the number of separately allocated clones of the listener.
+/// Listeners are typically used in trait object form, which may be created via the
+/// [`IntoDynListener`] trait in addition to the usual coercions;
+/// this is done automatically by [`Listen`], but calling it earlier may be useful to minimize
+/// the number of separately allocated clones of the listener when the same listener is
+/// to be registered with multiple message sources.
 ///
 /// Please note the requirements set out in [`Listener::receive()`].
 ///
@@ -80,8 +81,10 @@ pub trait Listener<M>: fmt::Debug {
     ///
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
-    /// **You should not need to override this method.**
-    fn erased_unsync(self) -> crate::unsync::DynListener<M>
+    ///
+    /// **You should not need to override or call this method;** use [`IntoDynListener`] instead.
+    #[doc(hidden)]
+    fn into_dyn_listener_unsync(self) -> crate::unsync::DynListener<M>
     where
         Self: Sized + 'static,
     {
@@ -94,9 +97,11 @@ pub trait Listener<M>: fmt::Debug {
     ///
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
-    /// **You should not need to override this method.**
+    ///
+    /// **You should not need to override or call this method;** use [`IntoDynListener`] instead.
+    #[doc(hidden)]
     #[cfg(feature = "sync")]
-    fn erased_sync(self) -> crate::sync::DynListener<M>
+    fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M>
     where
         Self: Sized + Send + Sync + 'static,
     {
@@ -188,7 +193,7 @@ where
     L: Listener<M> + Send + Sync + 'static,
 {
     fn into_dyn_listener(self) -> crate::sync::DynListener<M> {
-        self.erased_sync()
+        self.into_dyn_listener_sync()
     }
 }
 
@@ -197,7 +202,7 @@ where
     L: Listener<M> + 'static,
 {
     fn into_dyn_listener(self) -> crate::unsync::DynListener<M> {
-        self.erased_unsync()
+        self.into_dyn_listener_unsync()
     }
 }
 
@@ -206,11 +211,11 @@ impl<M> Listener<M> for crate::unsync::DynListener<M> {
         (**self).receive(messages)
     }
 
-    fn erased_unsync(self) -> crate::unsync::DynListener<M> {
+    fn into_dyn_listener_unsync(self) -> crate::unsync::DynListener<M> {
         self
     }
 
-    // erased_sync() is unimplementable because its bounds are not met.
+    // into_dyn_listener_sync() is unimplementable because its bounds are not met.
 }
 #[cfg(feature = "sync")]
 impl<M> Listener<M> for crate::sync::DynListener<M> {
@@ -218,12 +223,12 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
         (**self).receive(messages)
     }
 
-    // erased_unsync() will result in double-wrapping.
+    // into_dyn_listener_unsync() will result in double-wrapping.
     // That could be avoided by using `Arc` even for `unsync::DynListener`,
     // but that should be a rare case which is not worth the benefit of avoiding
     // unnecessary atomic operations when feature = "sync" isn't even enabled.
 
-    fn erased_sync(self) -> crate::sync::DynListener<M> {
+    fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M> {
         self
     }
 }
@@ -329,12 +334,12 @@ mod tests {
     #[test]
     fn dyn_listener_unsync() {
         let sink = Sink::new();
-        let listener: crate::unsync::DynListener<&str> = sink.listener().erased_unsync();
+        let listener: crate::unsync::DynListener<&str> = sink.listener().into_dyn_listener_unsync();
 
         // Should not gain a new wrapper when erased() again.
         assert_eq!(
             Rc::as_ptr(&listener),
-            Rc::as_ptr(&listener.clone().erased_unsync())
+            Rc::as_ptr(&listener.clone().into_dyn_listener_unsync())
         );
 
         // Should report alive (and not infinitely recurse).
@@ -354,12 +359,12 @@ mod tests {
     #[test]
     fn dyn_listener_sync() {
         let sink = Sink::new();
-        let listener: crate::sync::DynListener<&str> = sink.listener().erased_sync();
+        let listener: crate::sync::DynListener<&str> = sink.listener().into_dyn_listener_sync();
 
         // Should not gain a new wrapper when erased() again.
         assert_eq!(
             Arc::as_ptr(&listener),
-            Arc::as_ptr(&listener.clone().erased_sync())
+            Arc::as_ptr(&listener.clone().into_dyn_listener_sync())
         );
 
         // Should report alive (and not infinitely recurse).
