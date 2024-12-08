@@ -116,6 +116,29 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// The buffer does not use any heap allocations and will collect up to `CAPACITY` messages
     /// per batch.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use synch::{Listen as _, unsync::Notifier, Sink};
+    ///
+    /// let notifier: Notifier<&str> = Notifier::new();
+    /// let sink: Sink<&str> = Sink::new();
+    /// notifier.listen(sink.listener());
+    ///
+    /// let mut buffer = notifier.buffer::<2>();
+    ///
+    /// // The buffer fills up and sends after two messages.
+    /// buffer.push("hello");
+    /// assert!(sink.drain().is_empty());
+    /// buffer.push("and");
+    /// assert_eq!(sink.drain(), vec!["hello", "and"]);
+    ///
+    /// // The buffer also sends when it is dropped.
+    /// buffer.push("goodbye");
+    /// drop(buffer);
+    /// assert_eq!(sink.drain(), vec!["goodbye"]);
+    /// ```
     pub fn buffer<const CAPACITY: usize>(&self) -> Buffer<'_, M, L, CAPACITY> {
         Buffer::new(self)
     }
@@ -285,6 +308,7 @@ impl<M, L> Clone for NotifierForwarder<M, L> {
 mod tests {
     use super::*;
     use crate::Sink;
+    use alloc::sync::Arc;
     use alloc::{format, vec};
 
     #[test]
@@ -305,5 +329,20 @@ mod tests {
         assert_eq!(format!("{cn:?}"), "Notifier(1)");
     }
 
-    // Test for NotifierForwarder exists as a doc-test.
+    // Test for NotifierForwarder functionality exists as a doc-test.
+
+    #[test]
+    fn notifier_forwarder_debug() {
+        let n: Arc<crate::unsync::Notifier<u8>> = Arc::new(Notifier::new());
+        let nf = Notifier::forwarder(Arc::downgrade(&n));
+        assert_eq!(
+            format!("{nf:?}"),
+            "NotifierForwarder { alive(shallow): true, .. }"
+        );
+        drop(n);
+        assert_eq!(
+            format!("{nf:?}"),
+            "NotifierForwarder { alive(shallow): false, .. }"
+        );
+    }
 }

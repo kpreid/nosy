@@ -93,6 +93,7 @@
 #![allow(clippy::bool_assert_comparison, reason = "less legible")]
 #![allow(clippy::semicolon_if_nothing_returned, reason = "explicit delegation")]
 #![allow(clippy::missing_panics_doc)] // TODO: fix this
+#![cfg_attr(test, allow(clippy::arc_with_non_send_sync))]
 
 // -------------------------------------------------------------------------------------------------
 

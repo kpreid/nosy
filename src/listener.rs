@@ -322,10 +322,12 @@ mod tests {
     use super::*;
     use crate::Sink;
     use alloc::rc::Rc;
+    #[cfg(feature = "sync")]
+    use alloc::sync::Arc;
     use alloc::{format, vec};
 
     #[test]
-    fn erased_listener() {
+    fn dyn_listener_unsync() {
         let sink = Sink::new();
         let listener: crate::unsync::DynListener<&str> = sink.listener().erased_unsync();
 
@@ -333,6 +335,31 @@ mod tests {
         assert_eq!(
             Rc::as_ptr(&listener),
             Rc::as_ptr(&listener.clone().erased_unsync())
+        );
+
+        // Should report alive (and not infinitely recurse).
+        assert!(listener.receive(&[]));
+
+        // Should deliver messages.
+        assert!(listener.receive(&["a"]));
+        assert_eq!(sink.drain(), vec!["a"]);
+
+        // Should report dead
+        drop(sink);
+        assert!(!listener.receive(&[]));
+        assert!(!listener.receive(&["b"]));
+    }
+
+    #[cfg(feature = "sync")]
+    #[test]
+    fn dyn_listener_sync() {
+        let sink = Sink::new();
+        let listener: crate::sync::DynListener<&str> = sink.listener().erased_sync();
+
+        // Should not gain a new wrapper when erased() again.
+        assert_eq!(
+            Arc::as_ptr(&listener),
+            Arc::as_ptr(&listener.clone().erased_sync())
         );
 
         // Should report alive (and not infinitely recurse).
@@ -362,7 +389,7 @@ mod tests {
     #[test]
     fn dyn_listener_debug_sync() {
         let sink: Sink<&str> = Sink::new();
-        let listener: crate::sync::DynListener<&str> = alloc::sync::Arc::new(sink.listener());
+        let listener: crate::sync::DynListener<&str> = Arc::new(sink.listener());
 
         assert_eq!(format!("{listener:?}"), "SinkListener { alive: true, .. }");
     }
