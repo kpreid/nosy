@@ -24,14 +24,11 @@ use crate::{IntoDynListener, Listen, Listener};
 /// Message broadcaster.
 ///
 /// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
-/// of type `L`.
+/// of type `L`. `L` is usually a trait object type such as `Arc<dyn Listener>`.
 ///
 /// The `Notifier` is usually owned by some entity which emits messages when it changes.
-/// Each [`Listener`] usually holds a weak reference to allow it to be removed when the
-/// actual recipient is gone or uninterested.
-///
 /// [`Listener`]s may be added using the [`Listen`] implementation, and are removed when
-/// they report themselves as dead.
+/// they report themselves as dead (usually by means of checking a weak reference).
 ///
 /// We recommend that you use the type aliases [`sync::Notifier`](crate::sync::Notifier)
 /// or [`unsync::Notifier`](crate::unsync::Notifier), to avoid writing the type parameter
@@ -48,7 +45,7 @@ pub(crate) struct NotifierEntry<L> {
 }
 
 impl<M, L: Listener<M>> Notifier<M, L> {
-    /// Constructs a new empty [`Notifier`].
+    /// Constructs a new [`Notifier`] with no listeners.
     #[must_use]
     pub fn new() -> Self {
         Self {

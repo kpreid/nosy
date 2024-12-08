@@ -177,7 +177,7 @@ pub trait Listener<M>: fmt::Debug {
 
 /// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
 ///
-/// This trait is a helper for `Listen` and generally cannot be usefully implemented directly.
+/// This trait is a helper for [`Listen`] and generally cannot be usefully implemented directly.
 pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
     /// Wrap this [`Listener`] into a type-erased form of type `L`.
     fn into_dyn_listener(self) -> L;
@@ -247,7 +247,10 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
 /// struct MyMessage;
 ///
 /// impl Listen for MyType {
+///     // This message type must equal the Notifier’s message type.
 ///     type Msg = MyMessage;
+///
+///     // This part is boilerplate.
 ///     type Listener = <Notifier<Self::Msg> as Listen>::Listener;
 ///     fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
 ///         self.notifier.listen(listener)
@@ -267,7 +270,7 @@ pub trait Listen {
     ///
     /// Note that listeners are removed only via their returning [`false`] from
     /// [`Listener::receive()`]; there is no operation to remove a listener,
-    /// nor are subscriptions deduplicated.
+    /// and redundant subscriptions will result in redundant messages.
     fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L);
 }
 
