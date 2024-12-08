@@ -63,7 +63,11 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use synch::{Listen, sync::Notifier, Sink};
+    #[cfg_attr(feature = "sync", doc = " use synch::{Listen, sync::Notifier, Sink};")]
+    #[cfg_attr(
+        not(feature = "sync"),
+        doc = " use synch::{Listen, unsync::Notifier, Sink};"
+    )]
     ///
     /// let notifier_1 = Notifier::new();
     /// let notifier_2 = Arc::new(Notifier::new());
