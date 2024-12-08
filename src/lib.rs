@@ -84,6 +84,7 @@
 #![warn(clippy::large_futures)]
 #![warn(clippy::large_stack_frames)]
 #![warn(clippy::manual_let_else)]
+#![warn(clippy::missing_panics_doc)]
 #![warn(clippy::module_name_repetitions)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::return_self_not_must_use)]
@@ -92,7 +93,6 @@
 #![warn(clippy::unnecessary_wraps)]
 #![allow(clippy::bool_assert_comparison, reason = "less legible")]
 #![allow(clippy::semicolon_if_nothing_returned, reason = "explicit delegation")]
-#![allow(clippy::missing_panics_doc)] // TODO: fix this
 #![cfg_attr(test, allow(clippy::arc_with_non_send_sync))]
 
 // -------------------------------------------------------------------------------------------------
