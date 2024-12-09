@@ -63,10 +63,10 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// ```
     /// use std::sync::Arc;
-    #[cfg_attr(feature = "sync", doc = " use synch::{Listen, sync::Notifier, Sink};")]
+    #[cfg_attr(feature = "sync", doc = " use nosy::{Listen, sync::Notifier, Sink};")]
     #[cfg_attr(
         not(feature = "sync"),
-        doc = " use synch::{Listen, unsync::Notifier, Sink};"
+        doc = " use nosy::{Listen, unsync::Notifier, Sink};"
     )]
     ///
     /// let notifier_1 = Notifier::new();
@@ -120,7 +120,7 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     /// # Example
     ///
     /// ```
-    /// use synch::{Listen as _, unsync::Notifier, Sink};
+    /// use nosy::{Listen as _, unsync::Notifier, Sink};
     ///
     /// let notifier: Notifier<&str> = Notifier::new();
     /// let sink: Sink<&str> = Sink::new();

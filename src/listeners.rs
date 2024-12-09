@@ -72,7 +72,7 @@ impl<M> Sink<M> {
     /// Remove and return all messages returned so far.
     ///
     /// ```
-    /// use synch::{Listener, Sink};
+    /// use nosy::{Listener, Sink};
     ///
     /// let sink = Sink::new();
     /// sink.listener().receive(&[1]);
@@ -176,7 +176,7 @@ impl Flag {
     /// Constructs a new [`Flag`] with the given initial value.
     ///
     /// ```
-    /// # use synch::Flag;
+    /// # use nosy::Flag;
     /// assert_eq!(Flag::new(false).get_and_clear(), false);
     /// assert_eq!(Flag::new(true).get_and_clear(), true);
     /// ```
@@ -193,7 +193,7 @@ impl Flag {
     /// This is a convenience for calling `new()` followed by `listener()`.
     ///
     /// ```
-    /// use synch::{Flag, unsync::Notifier};
+    /// use nosy::{Flag, unsync::Notifier};
     ///
     /// let notifier = Notifier::<()>::new();
     /// let flag = Flag::listening(false, &notifier);
@@ -235,7 +235,7 @@ impl Flag {
     /// actually complete its work, but wants to try again later.
     ///
     /// ```
-    /// # let flag = synch::Flag::new(true);
+    /// # let flag = nosy::Flag::new(true);
     /// # fn try_to_do_the_thing() -> bool { false }
     /// #
     /// if flag.get_and_clear() {

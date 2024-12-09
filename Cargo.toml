@@ -2,12 +2,12 @@
 members = ["xtask"]
 
 [package]
-name = "synch"
+name = "nosy"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80.0"
 description = "Change notification / observation / broadcast channels, with filtering and coalescing. no_std compatible."
-repository = "https://github.com/kpreid/synch/"
+repository = "https://github.com/kpreid/nosy/"
 license = "MIT OR Apache-2.0"
 categories = ["asynchronous", "no-std"]
 keywords = ["change-notification", "listener", "observer", "observable"]

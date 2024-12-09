@@ -119,7 +119,7 @@ pub trait Listener<M>: fmt::Debug {
     /// # Example
     ///
     /// ```
-    /// use synch::{unsync::Notifier, Flag, Listen as _, Listener as _};
+    /// use nosy::{unsync::Notifier, Flag, Listen as _, Listener as _};
     ///
     /// let notifier = Notifier::new();
     /// let flag = Flag::new(false);
@@ -156,7 +156,7 @@ pub trait Listener<M>: fmt::Debug {
     /// This may be used to stop forwarding messages when a dependency no longer exists.
     ///
     /// ```
-    /// use synch::{Gate, Listen as _, Listener as _, Sink};
+    /// use nosy::{Gate, Listen as _, Listener as _, Sink};
     ///
     /// let sink = Sink::new();
     /// let (gate, gated) = sink.listener().gate();
@@ -241,7 +241,7 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
 /// Such an implementation is written as follows:
 ///
 /// ```
-/// use synch::{Listen, IntoDynListener, unsync::Notifier};
+/// use nosy::{Listen, IntoDynListener, unsync::Notifier};
 ///
 /// struct MyType {
 ///     notifier: Notifier<MyMessage>,

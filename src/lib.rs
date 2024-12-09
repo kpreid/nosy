@@ -2,9 +2,9 @@
 
 //! Library for broadcasting messages/events such as change notifications.
 //!
-//! # What this library does
+//! # What `nosy` does
 //!
-//! The niche which this library seeks to fill is: delivering precise change notifications
+//! The niche which `nosy` seeks to fill is: delivering precise change notifications
 //! (e.g. “these particular elements of this collection have changed”) from a data source
 //! to a set of listeners (observers) in such a way that there is
 //!
@@ -16,7 +16,7 @@
 //! The tradeoff we make in order to achieve this is that message delivery does involve execution
 //! of a *small* amount of code on behalf of each [`Listener`];
 //! this code is responsible for deciding whether the message is of interest, and if so, storing it
-//! for later reading.
+//! or its implications for later reading.
 //! For example, a listener might `match` a message enum, and in cases where it is of interest,
 //! [set an `AtomicBool` to true](Flag). The final recipient would then use that boolean flag
 //! to determine that it needs to re-read the data which the messages are about.
@@ -26,9 +26,11 @@
 //! In a loose sense, each listener is itself a sort of channel sender;
 //! it is written when the message is sent, and to be useful, it must have shared state with
 //! some receiving side which reads (and clears) that shared state.
-//! Because of this, this library is not a good choice if you expect to have very many listeners
+//! Because of this, `nosy` is not a good choice if you expect to have very many listeners
 //! of the same character (e.g. many identical worker tasks updating their state); in those cases,
 //! you would probably be better off using a conventional broadcast channel or watch channel.
+//! It is also not a good choice if it is critical that no third-party code executes on your thread
+//! or while your function is running.
 //!
 //! # Getting started
 //!
