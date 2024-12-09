@@ -6,7 +6,7 @@ name = "synch"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80.0"
-description = "Change notification / observation / broadcast channels, with synchronous delivery, filtering, and coalescing."
+description = "Change notification / observation / broadcast channels, with filtering and coalescing. no_std compatible."
 repository = "https://github.com/kpreid/synch/"
 license = "MIT OR Apache-2.0"
 categories = ["asynchronous", "no-std"]
@@ -26,13 +26,12 @@ sync = []
 
 [dependencies]
 arrayvec = { version = "0.7.4", default-features = false }
-# TODO: After we’re done with refactoring, see if we are really using cfg-if
 cfg-if = { version = "1.0.0", default-features = false }
 # TODO: Remove the trivial usage of manyfmt
 manyfmt = { version = "0.1.0", default-features = false }
 mutants = { version = "0.0.3", default-features = false }
-static_assertions = "1.1.0"
 
 [dev-dependencies]
-pretty_assertions = { version = "1.2.0" }
 indoc = { version = "2.0.1", default-features = false }
+pretty_assertions = "1.2.0"
+static_assertions = "1.1.0"
