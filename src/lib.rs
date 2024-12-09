@@ -19,6 +19,7 @@
 //! of a *small* amount of code on behalf of each [`Listener`];
 //! this code is responsible for deciding whether the message is of interest, and if so, storing it
 //! or its implications for later reading.
+//! (We could say that *the listeners are nosy*.)
 //! For example, a listener might `match` a message enum, and in cases where it is of interest,
 //! [set an `AtomicBool` to true](Flag). The final recipient would then use that boolean flag
 //! to determine that it needs to re-read the data which the messages are about.
@@ -46,6 +47,7 @@
 //!
 //! # Features and platform requirements
 //!
+//! `nosy` is compatible with `no_std` platforms.
 //! The minimum requirements for using `nosy` are the following.
 //! (All [platforms which support `std`] meet these requirements, and many others do too.)
 //!
