@@ -38,7 +38,7 @@ where
 
 // -------------------------------------------------------------------------------------------------
 
-/// A [`Listener`] which stores all the messages it receives.
+/// A [`Listener`] destination which stores all the messages it receives.
 ///
 /// This is only intended for testing.
 #[derive(Debug)]
@@ -215,7 +215,7 @@ impl Flag {
     ///
     /// This is equivalent to `self.listener().receive(())`, but more efficient.
     /// It may be useful in situations where the caller of `get_and_clear()` realizes it cannot
-    /// actually complete its work.
+    /// actually complete its work, but wants to try again later.
     ///
     /// ```
     /// # let flag = synch::Flag::new(true);
@@ -227,7 +227,7 @@ impl Flag {
     ///     }
     /// # } else { unreachable!();
     /// }
-    /// # assert!(flag.get_and_clear());
+    /// assert_eq!(flag.get_and_clear(), true);
     /// ```
     #[inline]
     pub fn set(&self) {
