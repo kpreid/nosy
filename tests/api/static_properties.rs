@@ -34,13 +34,13 @@ const _: () = {
         );
     }
 
-    assert_impl_all!(synch::DirtyFlag: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
-    assert_impl_all!(synch::DirtyFlagListener: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
-
     assert_impl_all!(synch::Filter<fn(()) -> Option<()>, (), 1>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
+    assert_impl_all!(synch::Flag: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::FlagListener: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+
     assert_impl_all!(synch::Gate: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
-    assert_impl_all!(synch::GateListener<synch::DirtyFlagListener>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(synch::GateListener<synch::FlagListener>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
     // Notifier, sync and unsync flavors.
     // Always not RefUnwindSafe

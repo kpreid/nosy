@@ -130,32 +130,36 @@ impl<M> Default for Sink<M> {
 /// It is implemented as a shared [`AtomicBool`].
 /// It is [`Send`] and [`Sync`] regardless of whether the `"sync"` crate feature is enabled.
 ///
-/// The atomic orderings used are [`Release`](Ordering::Release) for setting the flag and
-/// [`Acquire`](Ordering::Acquire) for reading it.
+/// The atomic orderings used are [`Release`](Ordering::Release) for setting the flag, and
+/// [`Acquire`](Ordering::Acquire) for reading and clearing it.
 /// We do not recommend relying on this as your sole source of synchronization in unsafe code,
 /// but this does mean that if the notification is carried across threads then the recipient
 /// can rely on seeing effects that happened before the flag was set.
-pub struct DirtyFlag {
-    flag: Arc<AtomicBool>,
+///
+/// The name of this type comes from the concept of a “dirty flag”, marking that state is
+/// unsaved or out of sync, but it can also be understood as a metaphorical mailbox flag —
+/// it signals that something has arrived, but not what.
+pub struct Flag {
+    shared: Arc<AtomicBool>,
 }
 
-/// [`DirtyFlag::listener()`] implementation.
+/// [`Flag::listener()`] implementation.
 #[derive(Clone)]
-pub struct DirtyFlagListener {
-    weak_flag: Weak<AtomicBool>,
+pub struct FlagListener {
+    weak: Weak<AtomicBool>,
 }
 
-impl fmt::Debug for DirtyFlag {
+impl fmt::Debug for Flag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // never multiline
-        write!(f, "DirtyFlag({:?})", self.flag.load(Ordering::Relaxed))
+        write!(f, "Flag({:?})", self.shared.load(Ordering::Relaxed))
     }
 }
-impl fmt::Debug for DirtyFlagListener {
+impl fmt::Debug for FlagListener {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let strong = self.weak_flag.upgrade();
+        let strong = self.weak.upgrade();
 
-        let mut ds = f.debug_struct("DirtyFlagListener");
+        let mut ds = f.debug_struct("FlagListener");
         ds.field("alive", &strong.is_some());
         if let Some(strong) = strong {
             ds.field("value", &(strong.load(Ordering::Relaxed)));
@@ -164,19 +168,19 @@ impl fmt::Debug for DirtyFlagListener {
     }
 }
 
-impl DirtyFlag {
+impl Flag {
     const SET_ORDERING: Ordering = Ordering::Release;
     const GET_CLEAR_ORDERING: Ordering = Ordering::Acquire;
 
-    /// Constructs a new [`DirtyFlag`] with the given initial value.
+    /// Constructs a new [`Flag`] with the given initial value.
     #[must_use]
     pub fn new(value: bool) -> Self {
         Self {
-            flag: Arc::new(AtomicBool::new(value)),
+            shared: Arc::new(AtomicBool::new(value)),
         }
     }
 
-    /// Constructs a new [`DirtyFlag`] with the given initial value and call
+    /// Constructs a new [`Flag`] with the given initial value and call
     /// [`Listen::listen()`] with its listener.
     ///
     /// This is a convenience for calling `new()` followed by `listener()`.
@@ -184,7 +188,7 @@ impl DirtyFlag {
     pub fn listening<L>(value: bool, source: L) -> Self
     where
         L: Listen,
-        DirtyFlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
+        FlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
     {
         let new_self = Self::new(value);
         source.listen(new_self.listener());
@@ -194,9 +198,9 @@ impl DirtyFlag {
     /// Returns a [`Listener`] which will set this flag to [`true`] when it receives any
     /// message.
     #[must_use]
-    pub fn listener(&self) -> DirtyFlagListener {
-        DirtyFlagListener {
-            weak_flag: Arc::downgrade(&self.flag),
+    pub fn listener(&self) -> FlagListener {
+        FlagListener {
+            weak: Arc::downgrade(&self.shared),
         }
     }
 
@@ -204,7 +208,7 @@ impl DirtyFlag {
     #[allow(clippy::must_use_candidate)]
     #[inline]
     pub fn get_and_clear(&self) -> bool {
-        self.flag.swap(false, Self::GET_CLEAR_ORDERING)
+        self.shared.swap(false, Self::GET_CLEAR_ORDERING)
     }
 
     /// Set the flag value to [`true`].
@@ -214,7 +218,7 @@ impl DirtyFlag {
     /// actually complete its work.
     ///
     /// ```
-    /// # let flag = synch::DirtyFlag::new(true);
+    /// # let flag = synch::Flag::new(true);
     /// # fn try_to_do_the_thing() -> bool { false }
     /// #
     /// if flag.get_and_clear() {
@@ -227,14 +231,14 @@ impl DirtyFlag {
     /// ```
     #[inline]
     pub fn set(&self) {
-        self.flag.store(true, Self::SET_ORDERING);
+        self.shared.store(true, Self::SET_ORDERING);
     }
 }
-impl<M> Listener<M> for DirtyFlagListener {
+impl<M> Listener<M> for FlagListener {
     fn receive(&self, messages: &[M]) -> bool {
-        if let Some(cell) = self.weak_flag.upgrade() {
+        if let Some(cell) = self.weak.upgrade() {
             if !messages.is_empty() {
-                cell.store(true, DirtyFlag::SET_ORDERING);
+                cell.store(true, Flag::SET_ORDERING);
             }
             true
         } else {
@@ -269,9 +273,9 @@ mod tests {
     }
 
     #[test]
-    fn dirty_flag_alive() {
+    fn flag_alive() {
         let notifier: Notifier<()> = Notifier::new();
-        let flag = DirtyFlag::new(false);
+        let flag = Flag::new(false);
         notifier.listen(flag.listener());
         assert_eq!(notifier.count(), 1);
         drop(flag);
@@ -279,8 +283,8 @@ mod tests {
     }
 
     #[test]
-    fn dirty_flag_set() {
-        let flag = DirtyFlag::new(false);
+    fn flag_set() {
+        let flag = Flag::new(false);
 
         // not set by zero messages
         flag.listener().receive(&[(); 0]);
@@ -292,26 +296,23 @@ mod tests {
     }
 
     #[test]
-    fn dirty_flag_debug() {
-        assert_eq!(format!("{:?}", DirtyFlag::new(false)), "DirtyFlag(false)");
-        assert_eq!(format!("{:?}", DirtyFlag::new(true)), "DirtyFlag(true)");
+    fn flag_debug() {
+        assert_eq!(format!("{:?}", Flag::new(false)), "Flag(false)");
+        assert_eq!(format!("{:?}", Flag::new(true)), "Flag(true)");
 
         // Test the listener's Debug in all states too
-        let flag = DirtyFlag::new(false);
+        let flag = Flag::new(false);
         let listener = flag.listener();
         assert_eq!(
             format!("{flag:?} {listener:?}"),
-            "DirtyFlag(false) DirtyFlagListener { alive: true, value: false }"
+            "Flag(false) FlagListener { alive: true, value: false }"
         );
         listener.receive(&[()]);
         assert_eq!(
             format!("{flag:?} {listener:?}"),
-            "DirtyFlag(true) DirtyFlagListener { alive: true, value: true }"
+            "Flag(true) FlagListener { alive: true, value: true }"
         );
         drop(flag);
-        assert_eq!(
-            format!("{listener:?}"),
-            "DirtyFlagListener { alive: false }"
-        );
+        assert_eq!(format!("{listener:?}"), "FlagListener { alive: false }");
     }
 }

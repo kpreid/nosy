@@ -119,10 +119,10 @@ pub trait Listener<M>: fmt::Debug {
     /// # Example
     ///
     /// ```
-    /// use synch::{unsync::Notifier, DirtyFlag, Listen as _, Listener as _};
+    /// use synch::{unsync::Notifier, Flag, Listen as _, Listener as _};
     ///
     /// let notifier = Notifier::new();
-    /// let flag = DirtyFlag::new(false);
+    /// let flag = Flag::new(false);
     /// notifier.listen(flag.listener().filter(|&msg: &i32| {
     ///     if msg >= 0 {
     ///         Some(())
@@ -353,9 +353,9 @@ mod tests {
 
     #[test]
     fn dyn_listener_sync() {
-        // DirtyFlag, unlike Sink, is always Send + Sync so is ok to use in this test
+        // Flag, unlike Sink, is always Send + Sync so is ok to use in this test
         // without making it conditional.
-        let flag = crate::DirtyFlag::new(false);
+        let flag = crate::Flag::new(false);
         let listener: crate::sync::DynListener<&str> = flag.listener().into_dyn_listener_sync();
 
         // Should not gain a new wrapper when converted again.
@@ -381,34 +381,28 @@ mod tests {
     /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
     #[test]
     fn dyn_listener_debug_unsync() {
-        let flag = crate::DirtyFlag::new(false);
+        let flag = crate::Flag::new(false);
         let listener: crate::unsync::DynListener<&str> = Rc::new(flag.listener());
 
         assert_eq!(
             format!("{listener:?}"),
-            "DirtyFlagListener { alive: true, value: false }"
+            "FlagListener { alive: true, value: false }"
         );
         drop(flag);
-        assert_eq!(
-            format!("{listener:?}"),
-            "DirtyFlagListener { alive: false }"
-        );
+        assert_eq!(format!("{listener:?}"), "FlagListener { alive: false }");
     }
 
     /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
     #[test]
     fn dyn_listener_debug_sync() {
-        let flag = crate::DirtyFlag::new(false);
+        let flag = crate::Flag::new(false);
         let listener: crate::sync::DynListener<&str> = Arc::new(flag.listener());
 
         assert_eq!(
             format!("{listener:?}"),
-            "DirtyFlagListener { alive: true, value: false }"
+            "FlagListener { alive: true, value: false }"
         );
         drop(flag);
-        assert_eq!(
-            format!("{listener:?}"),
-            "DirtyFlagListener { alive: false }"
-        );
+        assert_eq!(format!("{listener:?}"), "FlagListener { alive: false }");
     }
 }

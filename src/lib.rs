@@ -18,7 +18,7 @@
 //! this code is responsible for deciding whether the message is of interest, and if so, storing it
 //! for later reading.
 //! For example, a listener might `match` a message enum, and in cases where it is of interest,
-//! [set an `AtomicBool` to true](DirtyFlag). The final recipient would then use that boolean flag
+//! [set an `AtomicBool` to true](Flag). The final recipient would then use that boolean flag
 //! to determine that it needs to re-read the data which the messages are about.
 //! Thus, the message itself need not be stored until the final recipient gets to it,
 //! and multiple messages are de-duplicated.
@@ -36,7 +36,7 @@
 //!
 //! To receive messages, create a [`Listener`], then use the [`Listen`] trait to register it with
 //! a [`Notifier`] or something which contains a [`Notifier`].
-//! When possible, you should use existing [`Listener`] implementations such as [`DirtyFlag`] or
+//! When possible, you should use existing [`Listener`] implementations such as [`Flag`] or
 //! [`StoreLock`] which have been designed to be well-behaved, but it is also reasonable
 //! to write your own implementation, as long as it obeys the documented requirements.
 //!
