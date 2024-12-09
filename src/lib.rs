@@ -44,22 +44,25 @@
 //!
 //! # Features and platform requirements
 //!
-//! The minimum requirements for using this library are:
+//! The minimum requirements for using `nosy` are the following.
+//! (All [platforms which support `std`] meet these requirements, and many others do too.)
 //!
 //! * The `alloc` standard library crate, and a global allocator.
-//! * Support for pointer-sized atomics (`cfg(target_has_atomic = "ptr")`).
+//! * Pointer-sized and `u8`-sized atomics (`cfg(target_has_atomic = "ptr")` and `cfg(target_has_atomic = "8")`).
 //!
 //! The following Cargo feature flags are defined:
 //!
 //! * `"std"`:
-//!   Enable implementations of our traits for `std` types.
-//!   Without this feature, only `core` and `alloc` types are used.
+//!   Enable implementations of our traits for [`std`] types,
+//!   rather than only [`core`] and [`alloc`] types.
 //! * `"sync"`:
-//!   Adds [`Sync`] functionality for delivering messages across threads;
-//!   in particular, the
+//!   Makes use of [`std::sync`] to adds [`Sync`] functionality for delivering messages across
+//!   threads; in particular, most of the
 #![cfg_attr(feature = "sync", doc = "   [`sync`]")]
 #![cfg_attr(not(feature = "sync"), doc = "   `sync`")]
 //!   module, and `Notifier: Sync` (when possible).
+//!
+//! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html
 
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
