@@ -139,17 +139,29 @@ pub struct DirtyFlag {
     flag: Arc<AtomicBool>,
 }
 
+/// [`DirtyFlag::listener()`] implementation.
+#[derive(Clone)]
+pub struct DirtyFlagListener {
+    weak_flag: Weak<AtomicBool>,
+}
+
 impl fmt::Debug for DirtyFlag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // never multiline
         write!(f, "DirtyFlag({:?})", self.flag.load(Ordering::Relaxed))
     }
 }
+impl fmt::Debug for DirtyFlagListener {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let strong = self.weak_flag.upgrade();
 
-/// [`DirtyFlag::listener()`] implementation.
-#[derive(Clone, Debug)]
-pub struct DirtyFlagListener {
-    weak_flag: Weak<AtomicBool>,
+        let mut ds = f.debug_struct("DirtyFlagListener");
+        ds.field("alive", &strong.is_some());
+        if let Some(strong) = strong {
+            ds.field("value", &(strong.load(Ordering::Relaxed)));
+        }
+        ds.finish()
+    }
 }
 
 impl DirtyFlag {
@@ -283,8 +295,23 @@ mod tests {
     fn dirty_flag_debug() {
         assert_eq!(format!("{:?}", DirtyFlag::new(false)), "DirtyFlag(false)");
         assert_eq!(format!("{:?}", DirtyFlag::new(true)), "DirtyFlag(true)");
-        let dirtied = DirtyFlag::new(false);
-        dirtied.listener().receive(&[()]);
-        assert_eq!(format!("{dirtied:?}"), "DirtyFlag(true)");
+
+        // Test the listener's Debug in all states too
+        let flag = DirtyFlag::new(false);
+        let listener = flag.listener();
+        assert_eq!(
+            format!("{flag:?} {listener:?}"),
+            "DirtyFlag(false) DirtyFlagListener { alive: true, value: false }"
+        );
+        listener.receive(&[()]);
+        assert_eq!(
+            format!("{flag:?} {listener:?}"),
+            "DirtyFlag(true) DirtyFlagListener { alive: true, value: true }"
+        );
+        drop(flag);
+        assert_eq!(
+            format!("{listener:?}"),
+            "DirtyFlagListener { alive: false }"
+        );
     }
 }

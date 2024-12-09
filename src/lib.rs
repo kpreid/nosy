@@ -124,7 +124,6 @@ pub use util::*;
 // -------------------------------------------------------------------------------------------------
 
 /// Type aliases for use in applications where listeners are expected to implement [`Sync`].
-#[cfg(feature = "sync")]
 #[path = "sync_or_not/"]
 #[allow(clippy::duplicate_mod)]
 pub mod sync {
@@ -142,12 +141,14 @@ pub mod sync {
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires all its [`Listener`]s to be so.
     /// When this requirement is undesired, use [`unsync::Notifier`] instead.
+    #[cfg(feature = "sync")]
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 
     /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Notifier`] be so.
     /// When this requirement is undesired, use [`unsync::NotifierForwarder`] instead.
+    #[cfg(feature = "sync")]
     pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
 }
 
@@ -180,6 +181,7 @@ pub mod unsync {
     pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
 }
 
+// TODO: Do we want to offer this? It is something of a non-additivity hazard.
 // mod sync_if_possible {
 //     #[cfg(feature = "sync")]
 //     pub(crate) use crate::sync::*;

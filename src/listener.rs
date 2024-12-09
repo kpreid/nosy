@@ -100,7 +100,6 @@ pub trait Listener<M>: fmt::Debug {
     ///
     /// **You should not need to override or call this method;** use [`IntoDynListener`] instead.
     #[doc(hidden)]
-    #[cfg(feature = "sync")]
     fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M>
     where
         Self: Sized + Send + Sync + 'static,
@@ -187,7 +186,6 @@ pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
     fn into_dyn_listener(self) -> L;
 }
 
-#[cfg(feature = "sync")]
 impl<L, M> IntoDynListener<M, crate::sync::DynListener<M>> for L
 where
     L: Listener<M> + Send + Sync + 'static,
@@ -217,7 +215,6 @@ impl<M> Listener<M> for crate::unsync::DynListener<M> {
 
     // into_dyn_listener_sync() is unimplementable because its bounds are not met.
 }
-#[cfg(feature = "sync")]
 impl<M> Listener<M> for crate::sync::DynListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         (**self).receive(messages)
@@ -327,7 +324,6 @@ mod tests {
     use super::*;
     use crate::Sink;
     use alloc::rc::Rc;
-    #[cfg(feature = "sync")]
     use alloc::sync::Arc;
     use alloc::{format, vec};
 
@@ -355,13 +351,14 @@ mod tests {
         assert!(!listener.receive(&["b"]));
     }
 
-    #[cfg(feature = "sync")]
     #[test]
     fn dyn_listener_sync() {
-        let sink = Sink::new();
-        let listener: crate::sync::DynListener<&str> = sink.listener().into_dyn_listener_sync();
+        // DirtyFlag, unlike Sink, is always Send + Sync so is ok to use in this test
+        // without making it conditional.
+        let flag = crate::DirtyFlag::new(false);
+        let listener: crate::sync::DynListener<&str> = flag.listener().into_dyn_listener_sync();
 
-        // Should not gain a new wrapper when erased() again.
+        // Should not gain a new wrapper when converted again.
         assert_eq!(
             Arc::as_ptr(&listener),
             Arc::as_ptr(&listener.clone().into_dyn_listener_sync())
@@ -369,13 +366,14 @@ mod tests {
 
         // Should report alive (and not infinitely recurse).
         assert!(listener.receive(&[]));
+        assert_eq!(flag.get_and_clear(), false);
 
         // Should deliver messages.
         assert!(listener.receive(&["a"]));
-        assert_eq!(sink.drain(), vec!["a"]);
+        assert_eq!(flag.get_and_clear(), true);
 
         // Should report dead
-        drop(sink);
+        drop(flag);
         assert!(!listener.receive(&[]));
         assert!(!listener.receive(&["b"]));
     }
@@ -383,19 +381,34 @@ mod tests {
     /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
     #[test]
     fn dyn_listener_debug_unsync() {
-        let sink: Sink<&str> = Sink::new();
-        let listener: crate::unsync::DynListener<&str> = Rc::new(sink.listener());
+        let flag = crate::DirtyFlag::new(false);
+        let listener: crate::unsync::DynListener<&str> = Rc::new(flag.listener());
 
-        assert_eq!(format!("{listener:?}"), "SinkListener { alive: true, .. }");
+        assert_eq!(
+            format!("{listener:?}"),
+            "DirtyFlagListener { alive: true, value: false }"
+        );
+        drop(flag);
+        assert_eq!(
+            format!("{listener:?}"),
+            "DirtyFlagListener { alive: false }"
+        );
     }
 
     /// Demonstrate that [`DynListener`] implements [`fmt::Debug`].
-    #[cfg(feature = "sync")]
     #[test]
     fn dyn_listener_debug_sync() {
-        let sink: Sink<&str> = Sink::new();
-        let listener: crate::sync::DynListener<&str> = Arc::new(sink.listener());
+        let flag = crate::DirtyFlag::new(false);
+        let listener: crate::sync::DynListener<&str> = Arc::new(flag.listener());
 
-        assert_eq!(format!("{listener:?}"), "SinkListener { alive: true, .. }");
+        assert_eq!(
+            format!("{listener:?}"),
+            "DirtyFlagListener { alive: true, value: false }"
+        );
+        drop(flag);
+        assert_eq!(
+            format!("{listener:?}"),
+            "DirtyFlagListener { alive: false }"
+        );
     }
 }
