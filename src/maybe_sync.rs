@@ -1,4 +1,3 @@
-use core::error::Error;
 use core::marker::PhantomData;
 use core::{fmt, ops};
 
@@ -74,7 +73,7 @@ cfg_if::cfg_if! {
         type InnerMutexGuard<'a, T> = std::sync::MutexGuard<'a, T>;
         type InnerRwLock<T> = std::sync::RwLock<T>;
         type InnerRwLockReadGuard<'a, T> = std::sync::RwLockReadGuard<'a, T>;
-        type InnerRwLockWriteGuard<'a, T> =  std::sync::RwLockWriteGuard<'a, T>;
+        type InnerRwLockWriteGuard<'a, T> = std::sync::RwLockWriteGuard<'a, T>;
     } else {
         type InnerMutex<T> = core::cell::RefCell<T>;
         type InnerMutexGuard<'a, T> = core::cell::RefMut<'a, T>;
@@ -214,16 +213,9 @@ impl<T: ?Sized> ops::DerefMut for RwLockWriteGuard<'_, T> {
     }
 }
 
+// Doesn't implement Error because it would be dead code.
 #[derive(Debug)]
 pub(crate) struct TryLockError;
-
-impl Error for TryLockError {}
-
-impl fmt::Display for TryLockError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "lock is currently locked elsewhere")
-    }
-}
 
 #[cfg(feature = "sync")]
 fn unpoison<T>(result: Result<T, std::sync::PoisonError<T>>) -> T {
