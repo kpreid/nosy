@@ -6,12 +6,14 @@
 //!
 //! The niche which `nosy` seeks to fill is: delivering precise change notifications
 //! (e.g. “these particular elements of this collection have changed”) from a data source
-//! to a set of listeners (observers) in such a way that there is
+//! to a set of listeners (observers) in such a way that
 //!
-//! * no unbounded buffering of messages (as an unbounded channel would have),
-//! * no blocking/suspending (as a bounded channel would have),
-//! * and yet also, no execution of further application logic while the message is being delivered
-//!   (as plain event-listener registration would have).
+//! * there is no unbounded buffering of messages (as an unbounded channel would have),
+//! * there is no blocking/suspending (as a bounded channel would have),
+//! * there is no execution of further application logic while the message is being delivered
+//!   (as plain event-listener registration would have), and
+//! * the scheduling of the execution of said application logic is fully under application control
+//!   (rather than implicitly executing some sort of work queue, as a “reactive” framework might).
 //!
 //! The tradeoff we make in order to achieve this is that message delivery does involve execution
 //! of a *small* amount of code on behalf of each [`Listener`];
