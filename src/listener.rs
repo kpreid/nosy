@@ -241,7 +241,7 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
 /// Such an implementation is written as follows:
 ///
 /// ```
-/// use nosy::{Listen, IntoDynListener, unsync::Notifier};
+/// use nosy::{Listen, unsync::Notifier};
 ///
 /// struct MyType {
 ///     notifier: Notifier<MyMessage>,
@@ -254,7 +254,7 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
 ///
 ///     // This part is boilerplate.
 ///     type Listener = <Notifier<Self::Msg> as Listen>::Listener;
-///     fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
+///     fn listen_raw(&self, listener: Self::Listener) {
 ///         self.notifier.listen(listener)
 ///     }
 /// }
@@ -273,47 +273,71 @@ pub trait Listen {
     /// Note that listeners are removed only via their returning [`false`] from
     /// [`Listener::receive()`]; there is no operation to remove a listener,
     /// and redundant subscriptions will result in redundant messages.
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L);
+    ///
+    /// By default, this method is equivalent to
+    ///
+    /// ```ignore
+    /// self.listen_raw(listener.into_dyn_listener())
+    /// ```
+    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
+    where
+        Self: Sized,
+    {
+        self.listen_raw(listener.into_dyn_listener())
+    }
+
+    /// Subscribe the given [`Listener`] to this source of messages.
+    ///
+    /// Compared to `listen()`, `listen_raw()` requires that the given listener be of exactly the
+    /// type that it will be stored as, rather than automatically wrapping it via the
+    /// [`IntoDynListener`]trait. In exchange, it can be used when [`IntoDynListener`] is not
+    /// implemented, or with `dyn Listen`.
+    /// Also, it is the method which implementors of `Listen` must implement.
+    ///
+    /// Note that listeners are removed only via their returning [`false`] from
+    /// [`Listener::receive()`]; there is no operation to remove a listener,
+    /// and redundant subscriptions will result in redundant messages.
+    fn listen_raw(&self, listener: Self::Listener);
 }
 
-impl<T: Listen> Listen for &T {
+impl<T: ?Sized + Listen> Listen for &T {
     type Msg = T::Msg;
     type Listener = T::Listener;
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
-        (**self).listen(listener)
+    fn listen_raw(&self, listener: Self::Listener) {
+        (**self).listen_raw(listener)
     }
 }
-impl<T: Listen> Listen for &mut T {
+impl<T: ?Sized + Listen> Listen for &mut T {
     type Msg = T::Msg;
     type Listener = T::Listener;
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
-        (**self).listen(listener)
+    fn listen_raw(&self, listener: Self::Listener) {
+        (**self).listen_raw(listener)
     }
 }
-impl<T: Listen> Listen for alloc::boxed::Box<T> {
+impl<T: ?Sized + Listen> Listen for alloc::boxed::Box<T> {
     type Msg = T::Msg;
     type Listener = T::Listener;
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
-        (**self).listen(listener)
+    fn listen_raw(&self, listener: Self::Listener) {
+        (**self).listen_raw(listener)
     }
 }
-impl<T: Listen> Listen for alloc::rc::Rc<T> {
+impl<T: ?Sized + Listen> Listen for alloc::rc::Rc<T> {
     type Msg = T::Msg;
     type Listener = T::Listener;
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
-        (**self).listen(listener)
+    fn listen_raw(&self, listener: Self::Listener) {
+        (**self).listen_raw(listener)
     }
 }
-impl<T: Listen> Listen for alloc::sync::Arc<T> {
+impl<T: ?Sized + Listen> Listen for alloc::sync::Arc<T> {
     type Msg = T::Msg;
     type Listener = T::Listener;
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L) {
-        (**self).listen(listener)
+    fn listen_raw(&self, listener: Self::Listener) {
+        (**self).listen_raw(listener)
     }
 }
 
@@ -322,10 +346,23 @@ impl<T: Listen> Listen for alloc::sync::Arc<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Sink;
+    use crate::{NullListener, Sink};
     use alloc::rc::Rc;
     use alloc::sync::Arc;
     use alloc::{format, vec};
+
+    #[test]
+    fn dyn_listen_is_possible() {
+        let notifier = crate::unsync::Notifier::<()>::new();
+        let dyn_listen: &dyn Listen<Msg = (), Listener = crate::unsync::DynListener<()>> =
+            &notifier;
+
+        // This is a direct trait object method call.
+        dyn_listen.listen_raw(NullListener.into_dyn_listener());
+
+        // This uses `impl Listen for &T` to be able to use the generic `listen()` method.
+        (&dyn_listen).listen(NullListener);
+    }
 
     #[test]
     fn dyn_listener_unsync() {

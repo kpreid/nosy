@@ -175,7 +175,24 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
     type Msg = M;
     type Listener = L;
 
-    fn listen<L2: IntoDynListener<M, L>>(&self, listener: L2) {
+    fn listen_raw(&self, listener: L) {
+        if !listener.receive(&[]) {
+            // skip adding it if it's already dead
+            return;
+        }
+        let mut listeners = self.listeners.write();
+        // TODO: consider amortization by not doing cleanup every time
+        Self::cleanup(&mut listeners);
+        listeners.push(NotifierEntry {
+            listener,
+            was_alive: AtomicBool::new(true),
+        });
+    }
+
+    // By adding this implementation instead of taking the default, we can defer
+    // `into_dyn_listener()` until we've done the early exit test.
+    // The code is identical other than the `into_dyn_listener()` call.
+    fn listen<L2: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
         if !listener.receive(&[]) {
             // skip adding it if it's already dead
             return;
