@@ -24,7 +24,8 @@ impl<M> Listener<M> for NullListener {
 
 // -------------------------------------------------------------------------------------------------
 
-/// Tuples of listeners may be used to distribute messages.
+/// Tuples of listeners may be used to distribute messages to multiple listeners with static
+/// dispatch.
 impl<M, L1, L2> Listener<M> for (L1, L2)
 where
     L1: Listener<M>,
@@ -173,6 +174,12 @@ impl Flag {
     const GET_CLEAR_ORDERING: Ordering = Ordering::Acquire;
 
     /// Constructs a new [`Flag`] with the given initial value.
+    ///
+    /// ```
+    /// # use synch::Flag;
+    /// assert_eq!(Flag::new(false).get_and_clear(), false);
+    /// assert_eq!(Flag::new(true).get_and_clear(), true);
+    /// ```
     #[must_use]
     pub fn new(value: bool) -> Self {
         Self {
@@ -184,6 +191,16 @@ impl Flag {
     /// [`Listen::listen()`] with its listener.
     ///
     /// This is a convenience for calling `new()` followed by `listener()`.
+    ///
+    /// ```
+    /// use synch::{Flag, unsync::Notifier};
+    ///
+    /// let notifier = Notifier::<()>::new();
+    /// let flag = Flag::listening(false, &notifier);
+    ///
+    /// notifier.notify(&());
+    /// assert_eq!(flag.get_and_clear(), true);
+    /// ```
     #[must_use]
     pub fn listening<L>(value: bool, source: L) -> Self
     where
@@ -253,13 +270,33 @@ impl<M> Listener<M> for FlagListener {
 mod tests {
     use super::*;
     use crate::unsync::Notifier;
-    use alloc::format;
+    use alloc::{format, vec};
 
     #[test]
     fn null_alive() {
         let notifier: Notifier<()> = Notifier::new();
         notifier.listen(NullListener);
         assert_eq!(notifier.count(), 0);
+    }
+
+    #[test]
+    fn tuple() {
+        let sink = Sink::new();
+
+        // Tuple of alive listener and dead listener is alive
+        assert_eq!((sink.listener(), NullListener).receive(&["SN"]), true);
+        assert_eq!(sink.drain(), vec!["SN"]);
+
+        // Tuple of dead listener and alive listener is alive
+        assert_eq!((NullListener, sink.listener()).receive(&["NS"]), true);
+        assert_eq!(sink.drain(), vec!["NS"]);
+
+        // Tuple of alive listener and alive listener is alive
+        assert_eq!((sink.listener(), sink.listener()).receive(&["SS"]), true);
+        assert_eq!(sink.drain(), vec!["SS", "SS"]);
+
+        // Tuple of dead listener and dead listener is dead
+        assert_eq!((NullListener, NullListener).receive(&["NN"]), false);
     }
 
     #[test]
