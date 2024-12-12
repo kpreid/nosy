@@ -1,3 +1,8 @@
+//! Wrapper around standard library types to provide an imitation
+//! `Mutex` and `RwLock` based on `RefCell` when `std` is not available.
+//!
+//! Somewhat over-engineered because it was originally copied from another project.
+
 use core::marker::PhantomData;
 use core::{fmt, ops};
 
