@@ -155,6 +155,12 @@ fn receive_bare_mutex<M, T: ?Sized + Store<M>>(
     true
 }
 
+impl<T: ?Sized> Clone for StoreLockListener<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 // TODO: Provide an alternative to `StoreLock` which doesn't hand out access to the mutex
 // but only swaps.
 

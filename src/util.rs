@@ -18,6 +18,7 @@ use crate::Listener;
 ///   the message type in mind.
 //---
 // Example/doc-test is in `filter()`
+#[derive(Clone)]
 pub struct Filter<F, T, const BATCH: usize> {
     /// The function to transform and possibly discard each message.
     pub(super) function: F,
