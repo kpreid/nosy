@@ -45,6 +45,9 @@
 //! [`StoreLock`] which have been designed to be well-behaved, but it is also reasonable
 //! to write your own implementation, as long as it obeys the documented requirements.
 //!
+//! To share a value which changes over time and which can be retrieved at any time
+//! (rather than only a stream of messages), use [`Source`].
+//!
 //! # Features and platform requirements
 //!
 //! `nosy` is compatible with `no_std` platforms.
@@ -114,6 +117,9 @@ extern crate std;
 
 // -------------------------------------------------------------------------------------------------
 
+mod source;
+pub use source::{constant, Constant, Source};
+
 mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};
 
@@ -137,13 +143,21 @@ pub use util::*;
 pub mod sync {
     #[cfg(doc)]
     use crate::unsync;
-    use crate::Listener;
+    use crate::{Listener, Source};
+    use alloc::sync::Arc;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
     /// This type is [`Send`] and [`Sync`]. When that is not satisfiable, use
     /// [`unsync::DynListener`] instead.
-    pub type DynListener<M> = alloc::sync::Arc<dyn Listener<M> + Send + Sync>;
+    pub type DynListener<M> = Arc<dyn Listener<M> + Send + Sync>;
+
+    /// Type-erased form of a [`Source`] which provides a value of type `T`.
+    ///
+    /// This type is [`Send`] and [`Sync`]. When that is not satisfiable, use
+    /// [`unsync::DynSource`] instead.
+    pub type DynSource<T> =
+        Arc<dyn Source<Value = T, Listener = DynListener<()>> + Send + Sync + 'static>;
 
     /// Message broadcaster.
     ///
@@ -158,6 +172,19 @@ pub mod sync {
     /// When this requirement is undesired, use [`unsync::NotifierForwarder`] instead.
     #[cfg(feature = "sync")]
     pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
+
+    /// A [`Source`] of a constant value.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Notifier`] be so.
+    /// When this requirement is undesired, use [`unsync::Constant`] instead.
+    pub type Constant<T> = crate::Constant<T, DynListener<()>>;
+
+    /// Returns a [`Source`] that’s coercible to [`DynSource`] with a constant value.
+    ///
+    /// This function behaves identically to `Arc::new(Constant::new(value))`.
+    pub fn constant<T>(value: T) -> Arc<Constant<T>> {
+        Arc::new(Constant::new(value))
+    }
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
@@ -165,14 +192,21 @@ pub mod sync {
 pub mod unsync {
     #[cfg(all(doc, feature = "sync"))]
     use crate::sync;
-    use crate::Listener;
+    use crate::{Listener, Source};
+    use alloc::rc::Rc;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::DynListener`] instead.
     //---
-    pub type DynListener<M> = alloc::rc::Rc<dyn Listener<M>>;
+    pub type DynListener<M> = Rc<dyn Listener<M>>;
+
+    /// Type-erased form of a [`Source`] which provides a value of type `T`.
+    ///
+    /// This type is not [`Send`] or [`Sync`]. When that is needed, use
+    /// [`sync::DynSource`] instead.
+    pub type DynSource<T> = Rc<dyn Source<Value = T, Listener = DynListener<()>> + 'static>;
 
     /// Message broadcaster.
     ///
@@ -185,6 +219,19 @@ pub mod unsync {
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::NotifierForwarder`] instead.
     pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
+
+    /// A [`Source`] of a constant value.
+    ///
+    /// This type is not [`Send`] or [`Sync`]. When that is needed, use
+    /// [`sync::Constant`] instead.
+    pub type Constant<T> = crate::Constant<T, DynListener<()>>;
+
+    /// Returns a [`Source`] that’s coercible to [`DynSource`] with a constant value.
+    ///
+    /// This function behaves identically to `Rc::new(Constant::new(value))`.
+    pub fn constant<T>(value: T) -> Rc<Constant<T>> {
+        Rc::new(Constant::new(value))
+    }
 }
 
 // TODO: Do we want to offer this? It is something of a non-additivity hazard.
