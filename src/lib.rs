@@ -133,8 +133,6 @@ pub use util::*;
 // -------------------------------------------------------------------------------------------------
 
 /// Type aliases for use in applications where listeners are expected to implement [`Sync`].
-#[path = "sync_or_not/"]
-#[allow(clippy::duplicate_mod)]
 pub mod sync {
     #[cfg(doc)]
     use crate::unsync;
@@ -162,8 +160,6 @@ pub mod sync {
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
-#[path = "sync_or_not/"]
-#[allow(clippy::duplicate_mod)]
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 pub mod unsync {
     #[cfg(all(doc, feature = "sync"))]
