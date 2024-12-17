@@ -61,13 +61,14 @@
 //!   rather than only [`core`] and [`alloc`] types.
 //! * `"sync"`:
 //!   Makes use of [`std::sync`] to adds [`Sync`] functionality for delivering messages across
-//!   threads; in particular, most of the
-#![cfg_attr(feature = "sync", doc = "   [`sync`]")]
-#![cfg_attr(not(feature = "sync"), doc = "   `sync`")]
-//!   module, and `Notifier: Sync` (when possible).
+//!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
 //! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html
-
+#![cfg_attr(not(feature = "std"), doc = " [`std`]: https://doc.rust-lang.org/std/")]
+#![cfg_attr(
+    not(feature = "std"),
+    doc = " [`std::sync`]: https://doc.rust-lang.org/std/sync/"
+)]
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
 #![warn(explicit_outlives_requirements)]
