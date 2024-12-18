@@ -21,8 +21,6 @@ default = []
 std = []
 # Enables use of `std::sync` to implement `Sync` for our types.
 sync = []
-# TODO: Add "futures-stream" feature that adds `Stream` compatibility
-# TODO: Add lock_api compatibility
 
 [dependencies]
 arrayvec = { version = "0.7.4", default-features = false }

@@ -294,9 +294,6 @@ where
     L: Listener<M>,
 {
     fn drop(&mut self) {
-        // TODO: Should we discard messages if panicking?
-        // Currently leaning no, because we've specified that listeners should not panic even under
-        // error conditions such as poisoned mutexes.
         if !self.buffer.is_empty() {
             self.flush();
         }
