@@ -26,7 +26,8 @@ use crate::{sync, unsync};
 /// # Generic parameters
 ///
 /// * `T` is the type of the value.
-/// * `L` is the type of [`Listener`] this source accepts.
+/// * `L` is the type of [`Listener`] this cell accepts,
+///   usually a trait object type such as [`sync::DynListener`].
 ///
 /// We recommend that you use the type aliases [`sync::Cell`] or [`unsync::Cell`],
 /// to avoid writing the type parameter `L` outside of special cases.
@@ -39,6 +40,12 @@ pub struct Cell<T, L> {
 /// [`Cell::as_source()`] implementation.
 ///
 /// This type can be coerced to `dyn Source`.
+///
+/// # Generic parameters
+///
+/// * `T` is the type of the value.
+/// * `L` is the type of [`Listener`] this source accepts,
+///   usually a trait object type such as [`sync::DynListener`].
 //---
 // Design note: Despite being public, this also serves as the internal *shared* data structure
 // between `Cell` and its sources. By doing this, we can hand out `Arc<CellSource>` for coercion
@@ -179,6 +186,12 @@ where
 ///
 /// We recommend that you use the type aliases [`sync::CellWithLocal`] or [`unsync::CellWithLocal`],
 /// to avoid writing the type parameter `L` outside of special cases.
+///
+/// # Generic parameters
+///
+/// * `T` is the type of the value.
+/// * `L` is the type of [`Listener`] this cell accepts,
+///   usually a trait object type such as [`sync::DynListener`].
 pub struct CellWithLocal<T, L> {
     cell: Cell<T, L>,
     value: T,

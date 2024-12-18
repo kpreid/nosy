@@ -5,7 +5,7 @@
 
 use core::fmt;
 
-use crate::{Filter, Gate};
+use crate::{sync, unsync, Filter, Gate};
 
 #[cfg(doc)]
 use crate::{Notifier, Store, StoreLock};
@@ -26,6 +26,10 @@ use crate::{Notifier, Store, StoreLock};
 /// Consider implementing [`Store`] and using [`StoreLock`] instead of implementing [`Listener`].
 /// [`StoreLock`] provides the weak reference and mutex that are needed in the most common
 /// kind of use of [`Listener`].
+///
+/// # Generic parameters
+///
+/// * `M` is the type of message that can be received.
 pub trait Listener<M>: fmt::Debug {
     /// Process and store the given series of messages.
     ///
@@ -180,42 +184,50 @@ pub trait Listener<M>: fmt::Debug {
 
 /// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
 ///
-/// This trait is a helper for [`Listen`] and generally cannot be usefully implemented directly.
+/// This trait is a helper for [`Listen`] and generally does not need to be implemented,
+/// unless you are using a custom type for your type-erased listeners that is neither
+/// [`sync::DynListener`] nor [`unsync::DynListener`].
+///
+/// # Generic parameters
+///
+/// * `Self` is the listener type being converted from.
+/// * `M` is the type of message accepted by the listener.
+/// * `L` is the listener type being converted to.
 pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
     /// Wrap this [`Listener`] into a type-erased form of type `L`.
     fn into_dyn_listener(self) -> L;
 }
 
-impl<L, M> IntoDynListener<M, crate::sync::DynListener<M>> for L
+impl<L, M> IntoDynListener<M, sync::DynListener<M>> for L
 where
     L: Listener<M> + Send + Sync + 'static,
 {
-    fn into_dyn_listener(self) -> crate::sync::DynListener<M> {
+    fn into_dyn_listener(self) -> sync::DynListener<M> {
         self.into_dyn_listener_sync()
     }
 }
 
-impl<L, M> IntoDynListener<M, crate::unsync::DynListener<M>> for L
+impl<L, M> IntoDynListener<M, unsync::DynListener<M>> for L
 where
     L: Listener<M> + 'static,
 {
-    fn into_dyn_listener(self) -> crate::unsync::DynListener<M> {
+    fn into_dyn_listener(self) -> unsync::DynListener<M> {
         self.into_dyn_listener_unsync()
     }
 }
 
-impl<M> Listener<M> for crate::unsync::DynListener<M> {
+impl<M> Listener<M> for unsync::DynListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         (**self).receive(messages)
     }
 
-    fn into_dyn_listener_unsync(self) -> crate::unsync::DynListener<M> {
+    fn into_dyn_listener_unsync(self) -> unsync::DynListener<M> {
         self
     }
 
     // into_dyn_listener_sync() is unimplementable because its bounds are not met.
 }
-impl<M> Listener<M> for crate::sync::DynListener<M> {
+impl<M> Listener<M> for sync::DynListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         (**self).receive(messages)
     }
@@ -225,7 +237,7 @@ impl<M> Listener<M> for crate::sync::DynListener<M> {
     // but that should be a rare case which is not worth the benefit of avoiding
     // unnecessary atomic operations when feature = "sync" isn't even enabled.
 
-    fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M> {
+    fn into_dyn_listener_sync(self) -> sync::DynListener<M> {
         self
     }
 }
@@ -279,7 +291,7 @@ pub trait Listen {
     /// ```ignore
     /// self.listen_raw(listener.into_dyn_listener())
     /// ```
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
+    fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
     where
         Self: Sized,
     {
@@ -353,9 +365,8 @@ mod tests {
 
     #[test]
     fn dyn_listen_is_possible() {
-        let notifier = crate::unsync::Notifier::<()>::new();
-        let dyn_listen: &dyn Listen<Msg = (), Listener = crate::unsync::DynListener<()>> =
-            &notifier;
+        let notifier = unsync::Notifier::<()>::new();
+        let dyn_listen: &dyn Listen<Msg = (), Listener = unsync::DynListener<()>> = &notifier;
 
         // This is a direct trait object method call.
         dyn_listen.listen_raw(NullListener.into_dyn_listener());
@@ -367,7 +378,7 @@ mod tests {
     #[test]
     fn dyn_listener_unsync() {
         let sink = Sink::new();
-        let listener: crate::unsync::DynListener<&str> = sink.listener().into_dyn_listener_unsync();
+        let listener: unsync::DynListener<&str> = sink.listener().into_dyn_listener_unsync();
 
         // Should not gain a new wrapper when erased() again.
         assert_eq!(
@@ -393,7 +404,7 @@ mod tests {
         // Flag, unlike Sink, is always Send + Sync so is ok to use in this test
         // without making it conditional.
         let flag = crate::Flag::new(false);
-        let listener: crate::sync::DynListener<&str> = flag.listener().into_dyn_listener_sync();
+        let listener: sync::DynListener<&str> = flag.listener().into_dyn_listener_sync();
 
         // Should not gain a new wrapper when converted again.
         assert_eq!(
@@ -419,7 +430,7 @@ mod tests {
     #[test]
     fn dyn_listener_debug_unsync() {
         let flag = crate::Flag::new(false);
-        let listener: crate::unsync::DynListener<&str> = Rc::new(flag.listener());
+        let listener: unsync::DynListener<&str> = Rc::new(flag.listener());
 
         assert_eq!(
             format!("{listener:?}"),
@@ -433,7 +444,7 @@ mod tests {
     #[test]
     fn dyn_listener_debug_sync() {
         let flag = crate::Flag::new(false);
-        let listener: crate::sync::DynListener<&str> = Arc::new(flag.listener());
+        let listener: sync::DynListener<&str> = Arc::new(flag.listener());
 
         assert_eq!(
             format!("{listener:?}"),

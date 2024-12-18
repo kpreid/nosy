@@ -43,10 +43,18 @@ where
 ///
 /// This is only intended for testing; real listeners should not unboundedly allocate
 /// duplicate messages.
+///
+/// # Generic parameters
+///
+/// * `M` is the type of the messages.
 #[derive(Debug)]
 pub struct Sink<M>(StoreLock<Vec<M>>);
 
 /// [`Sink::listener()`] implementation.
+///
+/// # Generic parameters
+///
+/// * `M` is the type of the messages.
 pub struct SinkListener<M>(StoreLockListener<Vec<M>>);
 
 impl<M> Sink<M> {

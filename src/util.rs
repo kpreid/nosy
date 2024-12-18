@@ -11,6 +11,8 @@ use crate::Listener;
 ///
 /// Construct this by calling [`Listener::filter()`]; see its documentation for more information.
 ///
+/// # Generic parameters
+///
 /// * `F` is the type of the filter function to use.
 /// * `T` is the type of the listener to pass filtered messages to.
 /// * `BATCH` is the maximum number of filtered messages to gather before passing them on.
@@ -136,14 +138,19 @@ impl Gate {
 /// until the corresponding [`Gate`] is dropped.
 ///
 /// Construct this using [`Listener::gate()`].
+///
+/// # Generic parameters
+///
+/// * `L` is the type of the listener this forwards to.
+///
 #[derive(Clone, Debug)]
-pub struct GateListener<T> {
+pub struct GateListener<L> {
     weak: Weak<()>,
-    target: T,
+    target: L,
 }
-impl<M, T> Listener<M> for GateListener<T>
+impl<M, L> Listener<M> for GateListener<L>
 where
-    T: Listener<M>,
+    L: Listener<M>,
 {
     fn receive(&self, messages: &[M]) -> bool {
         if self.weak.strong_count() > 0 {

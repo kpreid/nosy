@@ -15,13 +15,13 @@ use alloc::sync::Arc;
 use crate::maybe_sync::RwLock;
 use crate::{IntoDynListener, Listen, Listener};
 
+#[cfg(doc)]
+use crate::sync;
+
 // -------------------------------------------------------------------------------------------------
 
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
-/// Message broadcaster.
-///
-/// A `Notifier<M, L>` delivers messages of type `M` to a dynamic set of [`Listener`]s
-/// of type `L`. `L` is usually a trait object type such as `Arc<dyn Listener + Send + Sync>`.
+/// Delivers messages to a dynamic set of [`Listener`]s.
 ///
 /// The `Notifier` is usually owned by some entity which emits messages when it changes.
 /// [`Listener`]s may be added using the [`Listen`] implementation, and are removed when
@@ -30,6 +30,12 @@ use crate::{IntoDynListener, Listen, Listener};
 /// We recommend that you use the type aliases [`sync::Notifier`](crate::sync::Notifier)
 /// or [`unsync::Notifier`](crate::unsync::Notifier), to avoid writing the type parameter
 /// `L` outside of special cases.
+///
+/// # Generic parameters
+///
+/// * `M` is the type of the messages to be broadcast.
+/// * `L` is the type of [`Listener`] accepted,
+///   usually a trait object type such as [`sync::DynListener`].
 pub struct Notifier<M, L> {
     listeners: RwLock<Vec<NotifierEntry<L>>>,
     _phantom: PhantomData<fn(&M)>,
@@ -225,11 +231,23 @@ impl<M, L> fmt::Debug for Notifier<M, L> {
 
 /// Buffers messages that are to be sent through a [`Notifier`], for efficiency.
 ///
-/// Messages of type `M` may be added to the buffer, and when the buffer contains
+/// Messages may be added to the buffer, and when the buffer contains
 /// `CAPACITY` messages or when it is dropped,
 /// they are all sent through [`Notifier::notify_many()`] at once.
 /// This is intended to increase performance by invoking each listener once per batch
 /// instead of once per message.
+///
+/// Create a [`Buffer`] by calling [`Notifier::buffer()`].
+///
+/// # Generic parameters
+///
+/// * `'notifier` is the lifetime of the borrow of the [`Notifier`]
+///   which this sends messages to.
+/// * `M` is the type of message accepted by the [`Notifier`].
+/// * `L` is the type of [`Listener`] accepted by the [`Notifier`].
+/// * `CAPACITY` is the maximum number of messages in one batch.
+///   The buffer memory is allocated in-line in the [`Buffer`] value, so
+///   `CAPACITY` should be chosen with consideration for stack memory usage.
 #[derive(Debug)]
 pub struct Buffer<'notifier, M, L, const CAPACITY: usize>
 where
@@ -289,6 +307,11 @@ where
 
 /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
 /// Constructed by [`Notifier::forwarder()`].
+///
+/// # Generic parameters
+///
+/// * `M` is the type of the messages to be broadcast.
+/// * `L` is the type of [`Listener`] accepted by the [`Notifier`].
 pub struct NotifierForwarder<M, L>(pub(super) Weak<Notifier<M, L>>);
 
 impl<M, L> fmt::Debug for NotifierForwarder<M, L> {
