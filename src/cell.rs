@@ -27,6 +27,9 @@ use crate::{sync, unsync};
 ///
 /// * `T` is the type of the value.
 /// * `L` is the type of [`Listener`] this source accepts.
+///
+/// We recommend that you use the type aliases [`sync::Cell`] or [`unsync::Cell`],
+/// to avoid writing the type parameter `L` outside of special cases.
 pub struct Cell<T, L> {
     /// Access to the state this cell shares with all `Source`s.
     /// Publicly, only `Cell` can be used to mutate the `CellSource` data.
@@ -173,6 +176,9 @@ where
 
 /// Like [`Cell`], but allows borrowing the current value,
 /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
+///
+/// We recommend that you use the type aliases [`sync::CellWithLocal`] or [`unsync::CellWithLocal`],
+/// to avoid writing the type parameter `L` outside of special cases.
 pub struct CellWithLocal<T, L> {
     cell: Cell<T, L>,
     value: T,

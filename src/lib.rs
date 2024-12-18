@@ -37,16 +37,22 @@
 //!
 //! # Getting started
 //!
-//! To send messages, create a [`Notifier`], which manages a collection of [`Listener`]s.
+//! The types in this library are often generic over whether they are <code>[Send] + [Sync]</code>
+//! and require the values and listeners they contain to be too. For convenience, a set of
+//! less-generic type aliases and functions is available in the [`sync`] and [`unsync`] modules.
+//! The following discussion links to the generic versions, but examples will use the non-generic
+//! ones.
 //!
-//! To receive messages, create a [`Listener`], then use the [`Listen`] trait to register it with
-//! a [`Notifier`] or something which contains a [`Notifier`].
-//! When possible, you should use existing [`Listener`] implementations such as [`Flag`] or
-//! [`StoreLock`] which have been designed to be well-behaved, but it is also reasonable
-//! to write your own implementation, as long as it obeys the documented requirements.
+//! * To send messages, create a [`Notifier`], which manages a collection of [`Listener`]s.
 //!
-//! To share a value which changes over time and which can be retrieved at any time
-//! (rather than only a stream of messages), use [`Source`].
+//! * To receive messages, create a [`Listener`], then use the [`Listen`] trait to register it with
+//!   a [`Notifier`] or something which contains a [`Notifier`].
+//!   When possible, you should use existing [`Listener`] implementations such as [`Flag`] or
+//!   [`StoreLock`] which have been designed to be well-behaved, but it is also reasonable
+//!   to write your own implementation, as long as it obeys the documented requirements.
+//!
+//! * To share a value which changes over time and which can be retrieved at any time
+//!   (rather than only a stream of messages), use [`Cell`], or implement [`Source`].
 //!
 //! # Features and platform requirements
 //!
