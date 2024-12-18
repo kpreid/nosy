@@ -121,7 +121,7 @@ mod cell;
 pub use cell::{Cell, CellSource, CellWithLocal};
 
 mod source;
-pub use source::{constant, Constant, Source};
+pub use source::{Constant, Source};
 
 mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};

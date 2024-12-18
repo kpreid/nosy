@@ -88,13 +88,6 @@ impl<T: ?Sized + Source> Source for alloc::sync::Arc<T> {
 
 // -------------------------------------------------------------------------------------------------
 
-/// Returns a [`Source`] with a constant value.
-///
-/// This function behaves identically to [`Constant::new()`].
-pub const fn constant<T, L>(value: T) -> Constant<T, L> {
-    Constant::new(value)
-}
-
 /// A [`Source`] of a constant value; never sends a change notification.
 ///
 /// # Generic parameters
