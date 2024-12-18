@@ -34,6 +34,48 @@ const _: () = {
         );
     }
 
+    // Cell, sync and unsync flavors.
+    assert_impl_all!(nosy::unsync::Cell<()>: Unpin);
+    assert_not_impl_any!(nosy::unsync::Cell<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(nosy::unsync::Cell<*const ()>: Send, Sync);
+    #[cfg(feature = "sync")]
+    {
+        assert_impl_all!(nosy::sync::Cell<()>: Send, Sync, Unpin);
+        assert_not_impl_any!(nosy::sync::Cell<*const ()>: Send, Sync);
+        assert_not_impl_any!(nosy::sync::Cell<()>: RefUnwindSafe, UnwindSafe);
+    }
+
+    // CellSource, sync and unsync flavors.
+    type CellSourceU<T> = nosy::CellSource<T, nosy::unsync::DynListener<()>>;
+    type CellSourceS<T> = nosy::CellSource<T, nosy::sync::DynListener<()>>;
+    assert_impl_all!(CellSourceU<()>: Unpin);
+    assert_not_impl_any!(CellSourceU<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(CellSourceU<*const ()>: Send, Sync);
+    #[cfg(feature = "sync")]
+    {
+        assert_impl_all!(CellSourceS<()>: Send, Sync, Unpin);
+        assert_not_impl_any!(CellSourceS<*const ()>: Send, Sync);
+        assert_not_impl_any!(CellSourceS<()>: RefUnwindSafe, UnwindSafe);
+    }
+
+    // CellWithLocal, sync and unsync flavors.
+    assert_impl_all!(nosy::unsync::CellWithLocal<()>: Unpin);
+    assert_not_impl_any!(nosy::unsync::CellWithLocal<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(nosy::unsync::CellWithLocal<*const ()>: Send, Sync);
+    #[cfg(feature = "sync")]
+    {
+        assert_impl_all!(nosy::sync::CellWithLocal<()>: Send, Sync, Unpin);
+        assert_not_impl_any!(nosy::sync::CellWithLocal<*const ()>: Send, Sync);
+        assert_not_impl_any!(nosy::sync::CellWithLocal<()>: RefUnwindSafe, UnwindSafe);
+    }
+
+    // Constant, sync and unsync flavors.
+    // Constant doesn't store listeners, so it is Send + Sync even if its listeners aren't.
+    assert_impl_all!(nosy::unsync::Constant<()>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(nosy::unsync::Constant<*const ()>: Send, Sync);
+    assert_impl_all!(nosy::sync::Constant<()>: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(nosy::sync::Constant<*const ()>: Send, Sync);
+
     assert_impl_all!(nosy::Filter<fn(()) -> Option<()>, (), 1>: Clone, Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
     assert_impl_all!(nosy::Flag: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
