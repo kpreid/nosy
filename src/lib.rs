@@ -126,6 +126,12 @@ extern crate std;
 mod cell;
 pub use cell::{Cell, CellSource, CellWithLocal};
 
+mod filter;
+pub use filter::Filter;
+
+mod gate;
+pub use gate::{Gate, GateListener};
+
 mod source;
 pub use source::{Constant, Source};
 
@@ -142,9 +148,6 @@ pub use notifier::{Buffer, Notifier, NotifierForwarder};
 
 mod store;
 pub use store::{Store, StoreLock, StoreLockListener};
-
-mod util;
-pub use util::*;
 
 // -------------------------------------------------------------------------------------------------
 
