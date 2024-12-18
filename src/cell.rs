@@ -16,6 +16,10 @@ use crate::{sync, unsync};
 
 /// An interior-mutable container for a value which notifies when the value changed.
 ///
+/// The implementation uses a mutex to manage access to the value.
+/// The mutex will only be locked as long as necessary to clone or compare the value,
+/// so deadlock is impossible unless `T as Clone` or `T as PartialEq` uses a shared lock itself.
+///
 /// Access to the value requires cloning it, so if the clone is not cheap,
 /// consider wrapping the value with [`Arc`] to reduce the cost to reference count changes.
 ///
@@ -215,20 +219,30 @@ where
 
 // -------------------------------------------------------------------------------------------------
 
-impl<T: fmt::Debug, L: Listener<()>> fmt::Debug for Cell<T, L> {
+impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for Cell<T, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut ds = f.debug_struct("Cell");
-        ds.field("value", &*self.shared.value_mutex.lock());
+        // Note that we do not simply lock the mutex and avoid cloning the value.
+        // This is to ensure that we cannot deadlock or delay by holding the lock while
+        // waiting for writes to the caller-provided output stream.
+        ds.field("value", &self.get());
         format_cell_metadata(&mut ds, &self.shared);
         ds.finish()
     }
 }
-impl<T: fmt::Debug, L: Listener<()>> fmt::Debug for CellSource<T, L> {
+impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for CellSource<T, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            value_mutex: _, // used via get()
+            notifier,
+        } = self;
         let mut ds = f.debug_struct("CellSource");
-        ds.field("value", &*self.value_mutex.lock());
+        // Note that we do not simply lock the mutex and avoid cloning the value.
+        // This is to ensure that we cannot deadlock or delay by holding the lock while
+        // waiting for writes to the caller-provided output stream.
+        ds.field("value", &self.get());
         // can't use format_cell_metadata() because we don't have the Arc
-        ds.field("listeners", &self.notifier.count());
+        ds.field("listeners", &notifier.count());
         ds.finish()
     }
 }
