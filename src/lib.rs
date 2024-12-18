@@ -201,6 +201,7 @@ pub mod sync {
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
     /// When this requirement is undesired, use [`unsync::Cell`] instead.
+    #[cfg(feature = "sync")]
     pub type Cell<T> = crate::Cell<T, DynListener<()>>;
 
     /// Like [`Cell`], but allows borrowing the current value,
@@ -208,6 +209,7 @@ pub mod sync {
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
     /// When this requirement is undesired, use [`unsync::CellWithLocal`] instead.
+    #[cfg(feature = "sync")]
     pub type CellWithLocal<T> = crate::CellWithLocal<T, DynListener<()>>;
 }
 
