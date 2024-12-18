@@ -117,6 +117,9 @@ extern crate std;
 
 // -------------------------------------------------------------------------------------------------
 
+mod cell;
+pub use cell::{Cell, CellSource, CellWithLocal};
+
 mod source;
 pub use source::{constant, Constant, Source};
 
@@ -145,6 +148,7 @@ pub mod sync {
     use crate::unsync;
     use crate::{Listener, Source};
     use alloc::sync::Arc;
+    use core::fmt;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
@@ -175,25 +179,41 @@ pub mod sync {
 
     /// A [`Source`] of a constant value.
     ///
-    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Notifier`] be so.
+    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
     /// When this requirement is undesired, use [`unsync::Constant`] instead.
     pub type Constant<T> = crate::Constant<T, DynListener<()>>;
 
-    /// Returns a [`Source`] that’s coercible to [`DynSource`] with a constant value.
+    /// Returns a [`DynSource`] with a constant value.
     ///
-    /// This function behaves identically to `Arc::new(Constant::new(value))`.
-    pub fn constant<T>(value: T) -> Arc<Constant<T>> {
+    /// This function behaves identically to `Arc::new(Constant::new(value))` followed by
+    /// [unsized coercion](https://doc.rust-lang.org/reference/type-coercions.html#unsized-coercions).
+    pub fn constant<T: Clone + Send + Sync + fmt::Debug + 'static>(value: T) -> DynSource<T> {
         Arc::new(Constant::new(value))
     }
+
+    /// An interior-mutable container for a value which notifies when the value changed.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
+    /// When this requirement is undesired, use [`unsync::Cell`] instead.
+    pub type Cell<T> = crate::Cell<T, DynListener<()>>;
+
+    /// Like [`Cell`], but allows borrowing the current value,
+    /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
+    /// When this requirement is undesired, use [`unsync::CellWithLocal`] instead.
+    pub type CellWithLocal<T> = crate::CellWithLocal<T, DynListener<()>>;
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 pub mod unsync {
-    #[cfg(all(doc, feature = "sync"))]
+    #[cfg(doc)]
     use crate::sync;
     use crate::{Listener, Source};
     use alloc::rc::Rc;
+    use alloc::sync::Arc;
+    use core::fmt;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
@@ -206,7 +226,18 @@ pub mod unsync {
     ///
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::DynSource`] instead.
-    pub type DynSource<T> = Rc<dyn Source<Value = T, Listener = DynListener<()>> + 'static>;
+    ///
+    /// # Design note: Why `Arc`?
+    ///
+    /// You may wonder why this type uses [`Arc`] instead of [`Rc`], even though the contents
+    /// will never be shareable with another thread.
+    /// The answer is that, by using the same pointer type as [`sync::DynSource`],
+    /// it allows implementors of [`Source`] such as [`Cell`] to use [`Arc`] as their shared
+    /// pointer type and thereby produce a `DynSource` of either `sync` or `unsync` flavor
+    /// without introducing any additional indirection in either case.
+    /// (I tried adding a trait which would allow picking either [`Arc`] or [`Rc`] consistent with
+    /// the [`Listener`] type, and got exciting trait solver failures instead of a working library.)
+    pub type DynSource<T> = Arc<dyn Source<Value = T, Listener = DynListener<()>> + 'static>;
 
     /// Message broadcaster.
     ///
@@ -226,12 +257,26 @@ pub mod unsync {
     /// [`sync::Constant`] instead.
     pub type Constant<T> = crate::Constant<T, DynListener<()>>;
 
-    /// Returns a [`Source`] that’s coercible to [`DynSource`] with a constant value.
+    /// Returns a [`DynSource`] with a constant value.
     ///
-    /// This function behaves identically to `Rc::new(Constant::new(value))`.
-    pub fn constant<T>(value: T) -> Rc<Constant<T>> {
-        Rc::new(Constant::new(value))
+    /// This function behaves identically to `Arc::new(Constant::new(value))` followed by
+    /// [unsized coercion](https://doc.rust-lang.org/reference/type-coercions.html#unsized-coercions).
+    pub fn constant<T: Clone + fmt::Debug + 'static>(value: T) -> DynSource<T> {
+        Arc::new(Constant::new(value))
     }
+
+    /// An interior-mutable container for a value which notifies when the value changed.
+    ///
+    /// This type is not [`Send`] or [`Sync`].
+    /// When that is needed, use [`sync::Cell`] instead.
+    pub type Cell<T> = crate::Cell<T, DynListener<()>>;
+
+    /// Like [`Cell`], but allows borrowing the current value,
+    /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
+    ///
+    /// This type is not [`Send`] or [`Sync`].
+    /// When that is needed, use [`sync::CellWithLocal`] instead.
+    pub type CellWithLocal<T> = crate::CellWithLocal<T, DynListener<()>>;
 }
 
 // TODO: Do we want to offer this? It is something of a non-additivity hazard.

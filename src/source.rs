@@ -2,11 +2,13 @@
 
 #![allow(
     clippy::module_name_repetitions,
-    reason = "false positive; TODO: remove after Rust 1.84 is released"
+    reason = "false positive on private module; TODO: remove after Rust 1.84 is released"
 )]
 
 use core::fmt;
 use core::marker::PhantomData;
+
+use alloc::sync::Arc;
 
 use crate::{Listen, Listener};
 
@@ -49,6 +51,7 @@ pub trait Source: Listen<Msg = ()> + fmt::Debug {
     ///
     /// This method may, but is not required or expected to, panic if called from within
     /// one of this source’s listeners.
+    #[must_use]
     fn get(&self) -> Self::Value;
 }
 
@@ -94,7 +97,7 @@ pub const fn constant<T, L>(value: T) -> Constant<T, L> {
 
 /// A [`Source`] of a constant value; never sends a change notification.
 ///
-/// # Type parameters
+/// # Generic parameters
 ///
 /// * `T` is the type of the value.
 /// * `L` is the type of [`Listener`] this source accepts but never uses
@@ -206,23 +209,22 @@ impl<T, L> From<T> for Constant<T, L> {
     }
 }
 
-// Convenience conversions to allow going from `Constant` to wrapped trait object.
-// This allows avoiding needing to specify `Arc` or `Rc` explicitly.
+// Convenience conversions directly to coerced trait object,
+// instead of `Arc::new()` followed by coercion.
 impl<T> From<Constant<T, crate::unsync::DynListener<()>>> for crate::unsync::DynSource<T>
 where
     T: Clone + fmt::Debug + 'static,
 {
     fn from(value: Constant<T, crate::unsync::DynListener<()>>) -> Self {
-        alloc::rc::Rc::new(value)
+        Arc::new(value)
     }
 }
-#[cfg(feature = "sync")]
 impl<T> From<Constant<T, crate::sync::DynListener<()>>> for crate::sync::DynSource<T>
 where
     T: Clone + fmt::Debug + Send + Sync + 'static,
 {
     fn from(value: Constant<T, crate::sync::DynListener<()>>) -> Self {
-        alloc::sync::Arc::new(value)
+        Arc::new(value)
     }
 }
 
@@ -231,14 +233,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::unsync;
     use crate::Sink;
     use alloc::format;
-    use alloc::rc::Rc;
     use pretty_assertions::assert_eq;
 
     #[test]
     fn constant_source_debug() {
-        let source: crate::unsync::DynSource<u64> = constant(123).into();
+        let source = unsync::constant(123);
         assert_eq!(format!("{source:?}"), "Constant(123)");
         assert_eq!(format!("{source:#?}"), "Constant(\n    123,\n)");
     }
@@ -246,18 +248,18 @@ mod tests {
     #[test]
     fn constant_source_usage() {
         let sink: Sink<()> = Sink::new();
-        let source: crate::unsync::DynSource<u64> = Rc::new(constant(123u64));
+        let source = unsync::constant(123u64);
         source.listen(sink.listener()); // doesn't panic, doesn't do anything
         assert_eq!(source.get(), 123);
         assert_eq!(source.get(), 123);
         assert!(sink.drain().is_empty());
     }
 
-    #[cfg(feature = "sync")]
+    #[cfg(feature = "sync")] // because `Sink` isn't `Sync` otherwise
     #[test]
     fn constant_source_usage_sync() {
         let sink: Sink<()> = Sink::new();
-        let source: crate::sync::DynSource<u64> = alloc::sync::Arc::new(constant(123u64));
+        let source = crate::sync::constant(123u64);
         source.listen(sink.listener()); // doesn't panic, doesn't do anything
         assert_eq!(source.get(), 123);
         assert_eq!(source.get(), 123);

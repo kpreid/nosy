@@ -15,9 +15,6 @@ use alloc::sync::Arc;
 use crate::maybe_sync::RwLock;
 use crate::{IntoDynListener, Listen, Listener};
 
-// #[cfg(doc)]
-// use crate::ListenableCell;
-
 // -------------------------------------------------------------------------------------------------
 
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
