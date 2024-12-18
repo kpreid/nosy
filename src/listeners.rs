@@ -1,11 +1,9 @@
-use alloc::collections::VecDeque;
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::fmt;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::maybe_sync::{MaRc, MaWeak, RwLock};
-use crate::{Listen, Listener};
+use crate::{Listen, Listener, StoreLock, StoreLockListener};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -41,32 +39,27 @@ where
 
 /// A [`Listener`] destination which stores all the messages it receives.
 ///
-/// This is only intended for testing.
+/// This is a slightly more convenient interface for a [`StoreLock<Vec<M>>`](StoreLock).
+///
+/// This is only intended for testing; real listeners should not unboundedly allocate
+/// duplicate messages.
 #[derive(Debug)]
-pub struct Sink<M> {
-    messages: MaRc<RwLock<VecDeque<M>>>,
-}
+pub struct Sink<M>(StoreLock<Vec<M>>);
 
 /// [`Sink::listener()`] implementation.
-pub struct SinkListener<M> {
-    weak_messages: MaWeak<RwLock<VecDeque<M>>>,
-}
+pub struct SinkListener<M>(StoreLockListener<Vec<M>>);
 
 impl<M> Sink<M> {
     /// Constructs a new empty [`Sink`].
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            messages: MaRc::new(RwLock::new(VecDeque::new())),
-        }
+        Self(StoreLock::default())
     }
 
     /// Returns a [`Listener`] which records the messages it receives in this Sink.
     #[must_use]
     pub fn listener(&self) -> SinkListener<M> {
-        SinkListener {
-            weak_messages: MaRc::downgrade(&self.messages),
-        }
+        SinkListener(self.0.listener())
     }
 
     /// Remove and return all messages returned so far.
@@ -83,41 +76,30 @@ impl<M> Sink<M> {
     /// ```
     #[must_use]
     pub fn drain(&self) -> Vec<M> {
-        self.messages.write().drain(..).collect()
+        self.0.lock().drain(..).collect()
     }
 }
 
 impl<M> fmt::Debug for SinkListener<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SinkListener")
-            // not useful to print weak_messages unless we were to upgrade and lock it
-            .field("alive", &(self.weak_messages.strong_count() > 0))
-            .finish_non_exhaustive()
+        f.debug_tuple("SinkListener").field(&self.0).finish()
     }
 }
 
 impl<M: Clone + Send + Sync> Listener<M> for SinkListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
-        if let Some(cell) = self.weak_messages.upgrade() {
-            cell.write().extend(messages.iter().cloned());
-            true
-        } else {
-            false
-        }
+        self.0.receive(messages)
     }
 }
 
 impl<M> Clone for SinkListener<M> {
     fn clone(&self) -> Self {
-        Self {
-            weak_messages: self.weak_messages.clone(),
-        }
+        Self(self.0.clone())
     }
 }
 
 impl<M> Default for Sink<M> {
     // This implementation cannot be derived because we do not want M: Default
-
     fn default() -> Self {
         Self::new()
     }

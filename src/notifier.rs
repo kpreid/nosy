@@ -46,7 +46,7 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            listeners: RwLock::default(),
+            listeners: RwLock::new(Vec::new()),
             _phantom: PhantomData,
         }
     }
