@@ -138,8 +138,8 @@ pub use source::{Constant, Source};
 mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};
 
-mod listeners;
-pub use listeners::*;
+mod simple_listeners;
+pub use simple_listeners::{Flag, FlagListener, NullListener, Sink, SinkListener};
 
 mod maybe_sync;
 
