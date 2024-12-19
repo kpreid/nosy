@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match *args {
         ["test"] => {
             cargo(sh).args(["test", "--no-default-features"]).run()?;
+            cargo(sh).args(["test", "--features=async"]).run()?;
             cargo(sh).args(["test", "--features=std"]).run()?;
             cargo(sh).args(["test", "--features=sync"]).run()?;
             cargo(sh).args(["test", "--all-features"]).run()?;

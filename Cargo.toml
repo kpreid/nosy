@@ -21,15 +21,24 @@ default = []
 std = []
 # Enables use of `std::sync` to implement `Sync` for our types.
 sync = []
+# Enables async integration.
+async = ["dep:futures-core", "dep:futures-util"]
 
 [dependencies]
 arrayvec = { version = "0.7.4", default-features = false }
+futures-core = { version = "0.3.31", optional = true, default-features = false }
+futures-util = { version = "0.3.31", optional = true, default-features = false }
 cfg-if = { version = "1.0.0", default-features = false }
 # TODO: Remove the trivial usage of manyfmt
 manyfmt = { version = "0.1.0", default-features = false }
 mutants = { version = "0.0.3", default-features = false }
 
 [dev-dependencies]
+# For examples
+futures = { version = "0.3.31" }
+# For tests of `Debug` printing.
 indoc = { version = "2.0.1", default-features = false }
+# For tests of `Debug` printing.
 pretty_assertions = "1.2.0"
+# For tests of what auto traits our types have.
 static_assertions = "1.1.0"

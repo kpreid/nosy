@@ -130,6 +130,9 @@ pub use cell::{Cell, CellSource, CellWithLocal};
 mod filter;
 pub use filter::Filter;
 
+#[cfg(feature = "async")]
+pub mod future;
+
 mod gate;
 pub use gate::{Gate, GateListener};
 
