@@ -75,12 +75,34 @@
 //!   Makes use of [`std::sync`] to add [`Sync`] functionality for delivering messages across
 //!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
-//! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html
+//! # Limitations
+//!
+//! Besides the logical consequences of the architecture, there are some costs due to implementation
+//! restrictions that could have been avoided in a more narrowly scoped library,
+//! and some missing features.
+//!
+//! * In some cases, [`Arc`](alloc::sync::Arc) is used where [`Rc`](alloc::rc::Rc) would do.
+//!   This is done in order to avoid unnecessary incompatibilities between the [`sync`] and
+//!   [`unsync`] styles of usage (e.g. [`Cell::as_source()`]’s return type does not vary).
+//!
+//! * Currently, almost all [`Listener`] invocations end up passing through double indirection.
+//!   This is because each [`Listener`] in a [`Notifier`] is stored as an `Arc<dyn Listener>`,
+//!   and most listeners then contain a weak reference to their actual target.
+//!   This could be fixed with “inline box” storage of listeners whose data size is small,
+//!   but that is not currently done.
+//!
+//!   In specific applications, this can be avoided by creating [`Notifier`]s which store a single
+//!   non-`dyn` listener type or enum of listener types.
+//!
+//! * There is not yet any support for bringing your own `Mutex` type to enable
+//!   <code>[Send] + [Sync]</code> without [`std`].
+//!
 #![cfg_attr(not(feature = "std"), doc = " [`std`]: https://doc.rust-lang.org/std/")]
 #![cfg_attr(
     not(feature = "std"),
     doc = " [`std::sync`]: https://doc.rust-lang.org/std/sync/"
 )]
+//! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
 #![warn(explicit_outlives_requirements)]
