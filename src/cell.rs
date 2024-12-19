@@ -14,6 +14,7 @@ use crate::{sync, unsync};
 
 // -------------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// An interior-mutable container for a value which notifies when the value changed.
 ///
 /// The implementation uses a mutex to manage access to the value.
@@ -188,6 +189,7 @@ where
 
 // -------------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// Like [`Cell`], but allows borrowing the current value,
 /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
 ///

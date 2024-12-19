@@ -87,7 +87,13 @@ jobs:
     - name: Lint
       run: |
         cargo clippy --timings
+
+    - name: Document (default features)
+      run: |
         cargo rustdoc -- -Drustdoc::broken_intra_doc_links
+    - name: Document (all features)
+      run: |
+        cargo rustdoc --all-features -- -Drustdoc::broken_intra_doc_links
   
     - name: Save cargo --timings output
       if: ${{ always() }}

@@ -67,7 +67,10 @@
 //!
 //! * `"async"`:
 //!   Add functionality for `async` programming,
-//!   currently consisting of the [`future`] module.
+//!   currently consisting of the
+#![cfg_attr(feature = "async", doc = "[`future`]")]
+#![cfg_attr(not(feature = "async"), doc = "`future`")]
+//! module.
 //! * `"std"`:
 //!   Enable implementations of our traits for [`std`] types,
 //!   rather than only [`core`] and [`alloc`] types.
