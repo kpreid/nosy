@@ -133,4 +133,10 @@ const _: () = {
     {
         assert_impl_all!(nosy::StoreLockListener<Vec<()>>: Send, Sync);
     }
+
+    #[cfg(feature = "async")]
+    {
+        assert_impl_all!(nosy::future::WakeFlag: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+        assert_impl_all!(nosy::future::WakeFlagListener: Clone, Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
+    }
 };

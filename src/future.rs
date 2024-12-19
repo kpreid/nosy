@@ -268,6 +268,13 @@ impl WakeFlagShared {
     }
 }
 
+// AtomicWaker is not RefUnwindSafe so we need this explicit implementation
+// to allow WakeFlag and WakeFlagListener to be RefUnwindSafe.
+// The worst consequence of an unexpected unwind would be a lost wakeup,
+// but that is already an almost certain consequence of unwinding when you
+// meant to do something else.
+impl core::panic::RefUnwindSafe for WakeFlagShared {}
+
 // -------------------------------------------------------------------------------------------------
 
 /// As a [`Stream`], [`WakeFlag`] will produce `()` once for each time
