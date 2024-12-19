@@ -16,7 +16,7 @@ use crate::maybe_sync::RwLock;
 use crate::{IntoDynListener, Listen, Listener};
 
 #[cfg(doc)]
-use crate::sync;
+use crate::{sync, Source};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -37,8 +37,14 @@ use crate::sync;
 /// * `L` is the type of [`Listener`] accepted,
 ///   usually a trait object type such as [`sync::DynListener`].
 pub struct Notifier<M, L> {
-    listeners: RwLock<Vec<NotifierEntry<L>>>,
+    state: RwLock<State<L>>,
     _phantom: PhantomData<fn(&M)>,
+}
+
+enum State<L> {
+    Open(Vec<NotifierEntry<L>>),
+    /// The notifier is unable to send any more messages and does not accept listeners.
+    Closed,
 }
 
 pub(crate) struct NotifierEntry<L> {
@@ -47,16 +53,30 @@ pub(crate) struct NotifierEntry<L> {
     was_alive: AtomicBool,
 }
 
-impl<M, L: Listener<M>> Notifier<M, L> {
+impl<M, L> Notifier<M, L> {
     /// Constructs a new [`Notifier`] with no listeners.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            listeners: RwLock::new(Vec::new()),
+            state: RwLock::new(State::Open(Vec::new())),
             _phantom: PhantomData,
         }
     }
 
+    /// Signals that no further messages will be delivered, by dropping all current and future
+    /// listeners.
+    ///
+    /// After calling this, [`Notifier::notify()`] will panic if called.
+    ///
+    /// This method should be used when a `Notifier` has shared ownership and the remaining owners
+    /// (e.g. a [`Source`]) cannot be used to send further messages.
+    /// It is not necessary when the `Notifier` itself is dropped.
+    pub fn close(&self) {
+        *self.state.write() = State::Closed;
+    }
+}
+
+impl<M, L: Listener<M>> Notifier<M, L> {
     /// Returns a [`Listener`] which forwards messages to the listeners registered with
     /// this `Notifier`, provided that it is owned by an [`Arc`].
     ///
@@ -99,17 +119,28 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     }
 
     /// Deliver multiple messages to all [`Listener`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Notifier::close()`] was previously called.
     pub fn notify_many(&self, messages: &[M]) {
-        for NotifierEntry {
-            listener,
-            was_alive,
-        } in self.listeners.read().iter()
-        {
-            // Don't load was_alive before sending, because we assume the common case is that
-            // a listener implements receive() cheaply when it is dead.
-            let alive = listener.receive(messages);
+        match &*self.state.read() {
+            State::Open(listeners) => {
+                for NotifierEntry {
+                    listener,
+                    was_alive,
+                } in listeners.iter()
+                {
+                    // Don't load was_alive before sending, because we assume the common case is that
+                    // a listener implements receive() cheaply when it is dead.
+                    let alive = listener.receive(messages);
 
-            was_alive.fetch_and(alive, Relaxed);
+                    was_alive.fetch_and(alive, Relaxed);
+                }
+            }
+            State::Closed => {
+                panic!("cannot send messages after Notifier::close()");
+            }
         }
     }
 
@@ -151,24 +182,29 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// This operation is intended for testing and diagnostic purposes.
     pub fn count(&self) -> usize {
-        let mut listeners = self.listeners.write();
-        Self::cleanup(&mut listeners);
-        listeners.len()
+        let mut state = self.state.write();
+        Self::cleanup(&mut state);
+        state.len()
     }
 
-    /// Discard all dead weak pointers in `listeners`.
+    /// Discard all dead listeners and return the count of live ones.
     #[mutants::skip] // there are many ways to subtly break this
-    fn cleanup(listeners: &mut Vec<NotifierEntry<L>>) {
-        let mut i = 0;
-        while i < listeners.len() {
-            let entry = &listeners[i];
-            // We must ask the listener, not just consult was_alive, in order to avoid
-            // leaking memory if listen() is called repeatedly without any notify().
-            // TODO: But we can skip it if the last operation was notify().
-            if entry.was_alive.load(Relaxed) && entry.listener.receive(&[]) {
-                i += 1;
-            } else {
-                listeners.swap_remove(i);
+    fn cleanup(state: &mut State<L>) {
+        match state {
+            State::Closed => {}
+            State::Open(listeners) => {
+                let mut i = 0;
+                while i < listeners.len() {
+                    let entry = &listeners[i];
+                    // We must ask the listener, not just consult was_alive, in order to avoid
+                    // leaking memory if listen() is called repeatedly without any notify().
+                    // TODO: But we can skip it if the last operation was notify().
+                    if entry.was_alive.load(Relaxed) && entry.listener.receive(&[]) {
+                        i += 1;
+                    } else {
+                        listeners.swap_remove(i);
+                    }
+                }
             }
         }
     }
@@ -183,13 +219,18 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
             // skip adding it if it's already dead
             return;
         }
-        let mut listeners = self.listeners.write();
+        let state = &mut *self.state.write();
         // TODO: consider amortization by not doing cleanup every time
-        Self::cleanup(&mut listeners);
-        listeners.push(NotifierEntry {
-            listener,
-            was_alive: AtomicBool::new(true),
-        });
+        Self::cleanup(state);
+        match state {
+            State::Closed => {}
+            State::Open(listeners) => {
+                listeners.push(NotifierEntry {
+                    listener,
+                    was_alive: AtomicBool::new(true),
+                });
+            }
+        }
     }
 
     // By adding this implementation instead of taking the default, we can defer
@@ -200,13 +241,18 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
             // skip adding it if it's already dead
             return;
         }
-        let mut listeners = self.listeners.write();
+        let state = &mut *self.state.write();
         // TODO: consider amortization by not doing cleanup every time
-        Self::cleanup(&mut listeners);
-        listeners.push(NotifierEntry {
-            listener: listener.into_dyn_listener(),
-            was_alive: AtomicBool::new(true),
-        });
+        Self::cleanup(state);
+        match state {
+            State::Closed => {}
+            State::Open(listeners) => {
+                listeners.push(NotifierEntry {
+                    listener: listener.into_dyn_listener(),
+                    was_alive: AtomicBool::new(true),
+                });
+            }
+        }
     }
 }
 
@@ -219,10 +265,19 @@ impl<M, L: Listener<M>> Default for Notifier<M, L> {
 impl<M, L> fmt::Debug for Notifier<M, L> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // not using fmt.debug_tuple() so this is never printed on multiple lines
-        if let Ok(listeners) = self.listeners.try_read() {
-            write!(fmt, "Notifier({})", listeners.len())
+        if let Ok(state) = self.state.try_read() {
+            write!(fmt, "Notifier({})", state.len())
         } else {
             write!(fmt, "Notifier(?)")
+        }
+    }
+}
+
+impl<L> State<L> {
+    fn len(&self) -> usize {
+        match self {
+            State::Open(listeners) => listeners.len(),
+            State::Closed => 0,
         }
     }
 }
@@ -378,5 +433,33 @@ mod tests {
             format!("{nf:?}"),
             "NotifierForwarder { alive(shallow): false, .. }"
         );
+    }
+
+    #[test]
+    fn close_drops_listeners() {
+        #[derive(Debug)]
+        struct DropDetector(Arc<()>);
+        impl Listener<()> for DropDetector {
+            fn receive(&self, _: &[()]) -> bool {
+                true
+            }
+        }
+
+        let notifier = crate::unsync::Notifier::<()>::new();
+        let detector = DropDetector(Arc::new(()));
+        let weak = Arc::downgrade(&detector.0);
+        notifier.listen(detector);
+
+        assert_eq!(weak.strong_count(), 1);
+        notifier.close();
+        assert_eq!(weak.strong_count(), 0);
+    }
+
+    #[test]
+    #[should_panic = "cannot send messages after Notifier::close()"]
+    fn notify_after_close() {
+        let notifier = crate::unsync::Notifier::<()>::new();
+        notifier.close();
+        notifier.notify(&());
     }
 }

@@ -156,6 +156,13 @@ impl<T: Clone, L: Listener<()>> Cell<T, L> {
     }
 }
 
+impl<T, L> Drop for Cell<T, L> {
+    fn drop(&mut self) {
+        // If the `Cell` is dropped, then the `Source`s should not retain their `Listener`s.
+        self.shared.notifier.close()
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 
 impl<T, L: Listener<()>> Listen for CellSource<T, L> {
@@ -279,7 +286,7 @@ impl<T: fmt::Debug, L: Listener<()>> fmt::Debug for CellWithLocal<T, L> {
 //
 // (We would like to impl<T, L> fmt::Pointer for Arc<CellSource<T, L>> {}
 // but that implementation is overlapping.)
-impl<T, L> fmt::Pointer for Cell<T, L> {
+impl<T, L: Listener<()>> fmt::Pointer for Cell<T, L> {
     /// Prints the address of the cell's state storage, which is shared with
     /// [`Source`]s created from this cell.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -288,7 +295,7 @@ impl<T, L> fmt::Pointer for Cell<T, L> {
         ds.finish()
     }
 }
-impl<T, L> fmt::Pointer for CellWithLocal<T, L> {
+impl<T, L: Listener<()>> fmt::Pointer for CellWithLocal<T, L> {
     /// Prints the address of the cell's state storage, which is shared with
     /// [`Source`]s created from this cell.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -368,5 +375,28 @@ mod tests {
         let s = s.clone();
         cell.set(1);
         assert_eq!(s.get(), 1);
+    }
+
+    /// Dropping a [`Cell`] should drop all its listeners,
+    /// because it is then impossible for them to receive any more messages.
+    #[test]
+    fn dropping_cell_drops_listeners() {
+        #[derive(Debug)]
+        struct DropDetector(Arc<()>);
+        impl Listener<()> for DropDetector {
+            fn receive(&self, _: &[()]) -> bool {
+                true
+            }
+        }
+
+        let cell = Cell::<i32, crate::unsync::DynListener<()>>::new(0i32);
+        let source = cell.as_source();
+        let detector = DropDetector(Arc::new(()));
+        let weak = Arc::downgrade(&detector.0);
+        source.listen(detector);
+
+        assert_eq!(weak.strong_count(), 1);
+        drop(cell);
+        assert_eq!(weak.strong_count(), 0);
     }
 }

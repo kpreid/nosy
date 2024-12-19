@@ -111,6 +111,7 @@
 #![warn(clippy::unnecessary_self_imports)]
 #![warn(clippy::unnecessary_wraps)]
 #![allow(clippy::bool_assert_comparison, reason = "less legible")]
+#![allow(clippy::explicit_iter_loop)]
 #![allow(clippy::semicolon_if_nothing_returned, reason = "explicit delegation")]
 #![cfg_attr(test, allow(clippy::arc_with_non_send_sync))]
 

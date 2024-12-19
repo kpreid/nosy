@@ -10,6 +10,8 @@ use core::marker::PhantomData;
 
 use alloc::sync::Arc;
 
+#[cfg(doc)]
+use crate::Notifier;
 use crate::{Listen, Listener};
 
 // -------------------------------------------------------------------------------------------------
@@ -27,6 +29,10 @@ use crate::{Listen, Listener};
 /// (Listeners are, as always, encouraged not to do significant work,
 /// so, while a listener could *try* calling [`Source::get()`] immediately,
 /// this is not the intended architecture and is not guaranteed to work.)
+///
+/// If a `Source` is known to be in a state such that its value will never change again,
+/// then it should drop all of its current and future listeners.
+/// This may be accomplished through [`Notifier::close()`].
 ///
 /// The type aliases [`sync::DynSource`](crate::sync::DynSource)
 /// and [`unsync::DynSource`](crate::unsync::DynSource) are available for type-erased `Source`s
