@@ -115,6 +115,7 @@ impl<M> Default for Sink<M> {
 
 // -------------------------------------------------------------------------------------------------
 
+#[cfg_attr(not(feature = "async"), allow(rustdoc::broken_intra_doc_links))]
 /// A [`Listener`] destination which records only whether any messages have been received,
 /// until cleared.
 ///
@@ -130,6 +131,11 @@ impl<M> Default for Sink<M> {
 /// The name of this type comes from the concept of a “dirty flag”, marking that state is
 /// unsaved or out of sync, but it can also be understood as a metaphorical mailbox flag —
 /// it signals that something has arrived, but not what.
+///
+/// # See also
+///
+/// * [`future::WakeFlag`](crate::future::WakeFlag) is similar but wakes an async task
+///   instead of needing to be polled.
 pub struct Flag {
     shared: Arc<AtomicBool>,
 }

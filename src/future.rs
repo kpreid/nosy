@@ -26,6 +26,7 @@ use crate::{Listen, Listener};
 ///
 /// `WakeFlag` uses only atomic operations and no locks, and therefore may be used on `no_std`
 /// platforms.
+/// It is [`Send`] and [`Sync`] regardless of whether the `"sync"` crate feature is enabled.
 ///
 /// # Example
 ///
