@@ -65,11 +65,14 @@
 //!
 //! The following Cargo feature flags are defined:
 //!
+//! * `"async"`:
+//!   Add functionality for `async` programming,
+//!   currently consisting of the [`future`] module.
 //! * `"std"`:
 //!   Enable implementations of our traits for [`std`] types,
 //!   rather than only [`core`] and [`alloc`] types.
 //! * `"sync"`:
-//!   Makes use of [`std::sync`] to adds [`Sync`] functionality for delivering messages across
+//!   Makes use of [`std::sync`] to add [`Sync`] functionality for delivering messages across
 //!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
 //! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html

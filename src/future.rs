@@ -1,14 +1,15 @@
 //! Integration with `async` programming.
 //!
 //! This module is only available if the Cargo feature `"async"` is enabled.
+//! Nothing in it depends on any particular async executor/runtime.
 
 use alloc::sync::{Arc, Weak};
 use core::future::Future;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::task::{Context, Poll};
-use futures_core::Stream;
 
+use futures_core::Stream;
 use futures_util::task::AtomicWaker;
 
 use crate::{Listen, Listener};
