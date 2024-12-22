@@ -149,7 +149,9 @@ jobs:
           # Job's likely to fail and yet have useful cache material.
           cache-on-failure: true
 
-      - run: cargo install --locked cargo-mutants@24.11.2
+      # Not locked so that we can have a newer `syn` than is in the lockfile, for compatibility
+      # with use<> bounds. Add `--locked` back when there is a new release.
+      - run: cargo install cargo-mutants@24.11.2
 
       - name: Relative diff
         run: |
