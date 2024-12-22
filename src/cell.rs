@@ -173,6 +173,34 @@ impl<T, L: Listener<()>> Listen for CellSource<T, L> {
     fn listen_raw(&self, listener: Self::Listener) {
         self.notifier.listen_raw(listener);
     }
+
+    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
+        self.notifier.listen(listener);
+    }
+}
+impl<T, L: Listener<()>> Listen for Cell<T, L> {
+    type Msg = ();
+    type Listener = L;
+
+    fn listen_raw(&self, listener: Self::Listener) {
+        self.shared.listen_raw(listener);
+    }
+
+    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
+        self.shared.listen(listener);
+    }
+}
+impl<T, L: Listener<()>> Listen for CellWithLocal<T, L> {
+    type Msg = ();
+    type Listener = L;
+
+    fn listen_raw(&self, listener: Self::Listener) {
+        self.cell.listen_raw(listener);
+    }
+
+    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
+        self.cell.listen(listener);
+    }
 }
 
 impl<T, L> Source for CellSource<T, L>
@@ -242,6 +270,19 @@ where
     /// Returns a reference to the current value of this cell.
     pub fn get(&self) -> &T {
         &self.value
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+impl<T: Clone + Default, L: Listener<()>> Default for Cell<T, L> {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+impl<T: Clone + Default, L: Listener<()>> Default for CellWithLocal<T, L> {
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
