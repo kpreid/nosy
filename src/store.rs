@@ -5,9 +5,6 @@
 
 use core::fmt;
 
-use manyfmt::formats::Unquote;
-use manyfmt::Refmt as _;
-
 use crate::maybe_sync::{self, MaRc, MaWeak};
 use crate::Listener;
 
@@ -99,7 +96,7 @@ impl<T: ?Sized> fmt::Debug for StoreLockListener<T> {
         f.debug_struct("StoreLockListener")
             // The type name of T may give a useful clue about who this listener is for,
             // without being too verbose or nondeterministic by printing the whole current state.
-            .field("type", &core::any::type_name::<T>().refmt(&Unquote))
+            .field("type", &crate::util::Unquote::type_name::<T>())
             // not useful to print weak_target unless we were to upgrade and lock it
             .field("alive", &(self.0.strong_count() > 0))
             .finish()

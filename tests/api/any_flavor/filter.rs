@@ -1,7 +1,22 @@
 use super::flavor::Notifier;
-use nosy::{Listen as _, Listener as _, Sink};
+use nosy::{Listen as _, Listener as _, NullListener, Sink};
 
 use crate::tools::CaptureBatch;
+
+#[test]
+fn filter_debug() {
+    fn foo(x: &i32) -> Option<i32> {
+        Some(x + 1)
+    }
+    
+    let listener = NullListener.filter(foo);
+    
+    let fn_name = std::any::type_name_of_val(&foo);
+    assert_eq!(
+        format!("{listener:?}"),
+        format!("Filter {{ function: {fn_name}, target: NullListener }}")
+    );
+}
 
 #[test]
 fn filter_filtering_and_drop() {

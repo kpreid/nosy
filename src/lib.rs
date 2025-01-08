@@ -181,6 +181,8 @@ pub use notifier::{Buffer, Notifier, NotifierForwarder};
 mod store;
 pub use store::{Store, StoreLock, StoreLockListener};
 
+mod util;
+
 // -------------------------------------------------------------------------------------------------
 
 /// Type aliases for use in applications where listeners are expected to implement [`Sync`].

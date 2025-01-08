@@ -1,8 +1,5 @@
 use core::fmt;
 
-use manyfmt::formats::Unquote;
-use manyfmt::Refmt as _;
-
 use crate::Listener;
 
 /// A [`Listener`] which transforms or discards messages before passing them on to another
@@ -49,8 +46,11 @@ impl<F, T> Filter<F, T, 1> {
 impl<F, T: fmt::Debug, const BATCH: usize> fmt::Debug for Filter<F, T, BATCH> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Filter")
-            // function's type name may be the function name
-            .field("function", &core::any::type_name::<F>().refmt(&Unquote))
+            // functions usually don’t implement Debug, but the type name may be the function name
+            .field(
+                "function",
+                &crate::util::Unquote::type_name_of(&self.function),
+            )
             .field("target", &self.target)
             .finish()
     }
