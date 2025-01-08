@@ -165,7 +165,7 @@ mod gate;
 pub use gate::{Gate, GateListener};
 
 mod source;
-pub use source::{Constant, Source};
+pub use source::{Constant, Flatten, Map, Source};
 
 mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};
