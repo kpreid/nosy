@@ -12,7 +12,15 @@ use alloc::sync::Arc;
 
 #[cfg(doc)]
 use crate::Notifier;
-use crate::{Listen, Listener};
+use crate::{IntoDynListener, Listen, Listener};
+
+// -------------------------------------------------------------------------------------------------
+
+mod flatten;
+pub use flatten::Flatten;
+
+mod map;
+pub use map::Map;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -59,6 +67,69 @@ pub trait Source: Listen<Msg = ()> + fmt::Debug {
     /// one of this source’s listeners.
     #[must_use]
     fn get(&self) -> Self::Value;
+
+    /// Takes a function and produces a [`Source`] which applies that function to the values of
+    /// `self`.
+    ///
+    /// # Caveats
+    ///
+    /// Note that the function is called *every* time [`get()`](Source::get) is called, and that
+    /// change notifications will be forwarded regardless of whether the mapped output changed;
+    /// there is no caching.
+    /// Therefore, it is important that the function should be cheap, and if it is likely that the
+    /// output value will change less often than the input value, then a different approach
+    /// should be used.
+    ///
+    // TODO: give example of such a different approach — like a dependent cell.
+    // Perhaps we should have a value-comparing adapter which filters notifications, too...
+    // but that requires scheduling `get()`s.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use nosy::{unsync::Cell, Source as _};
+    ///
+    /// let cell: Cell<i32> = Cell::new(1);
+    /// let source = cell.as_source().map(|value| value * 100);
+    /// assert_eq!(source.get(), 100);
+    ///
+    /// cell.set(2);
+    /// assert_eq!(source.get(), 200);
+    /// ```
+    fn map<F, O>(self, function: F) -> Map<Self, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Value) -> O,
+    {
+        Map {
+            source: self,
+            function,
+        }
+    }
+
+    /// Converts a source of sources of some value into a source of that value.
+    ///
+    /// # Caveats
+    ///
+    /// The current implementation of [`Flatten`] uses an internal mutex.
+    /// This mutex is locked while [`Flatten::get()`] is called, and while it is locked,
+    /// `<Self::Value as Clone>::clone()` may be called.
+    /// Therefore, if that `clone()` attempts to acquire a lock on something
+    /// locked by the caller of [`Flatten::get()`], a deadlock would occur.
+    /// This should generally not be a risk because cloning most [`Source`]s should be purely a
+    /// reference count update; you can enforce this by making sure that `Self::Value`
+    /// is some variety of [`Arc`], such as [`sync::DynSource`](crate::sync::DynSource).
+    ///
+    // TODO: example
+    fn flatten(self) -> Flatten<Self>
+    where
+        Self: Sized,
+        Self::Value: Source + Clone,
+        flatten::OuterListener<Self>: IntoDynListener<(), Self::Listener>,
+        flatten::InnerListener<Self>: IntoDynListener<(), <Self::Value as Listen>::Listener>,
+    {
+        Flatten::new(self)
+    }
 }
 
 impl<T: ?Sized + Source> Source for &T {
