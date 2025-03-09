@@ -171,7 +171,7 @@ mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};
 
 mod simple_listeners;
-pub use simple_listeners::{Flag, FlagListener, NullListener, Sink, SinkListener};
+pub use simple_listeners::{Flag, FlagListener, Log, LogListener, NullListener};
 
 mod maybe_sync;
 
