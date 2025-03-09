@@ -1,5 +1,5 @@
 use super::flavor::Notifier;
-use nosy::{Flag, Listen as _, Listener as _, NullListener, Sink};
+use nosy::{Flag, Listen as _, Listener as _, Log, NullListener};
 
 #[test]
 fn null_alive() {
@@ -10,31 +10,31 @@ fn null_alive() {
 
 #[test]
 fn tuple() {
-    let sink = Sink::new();
+    let log = Log::new();
 
     // Tuple of alive listener and dead listener is alive
-    assert_eq!((sink.listener(), NullListener).receive(&["SN"]), true);
-    assert_eq!(sink.drain(), vec!["SN"]);
+    assert_eq!((log.listener(), NullListener).receive(&["SN"]), true);
+    assert_eq!(log.drain(), vec!["SN"]);
 
     // Tuple of dead listener and alive listener is alive
-    assert_eq!((NullListener, sink.listener()).receive(&["NS"]), true);
-    assert_eq!(sink.drain(), vec!["NS"]);
+    assert_eq!((NullListener, log.listener()).receive(&["NS"]), true);
+    assert_eq!(log.drain(), vec!["NS"]);
 
     // Tuple of alive listener and alive listener is alive
-    assert_eq!((sink.listener(), sink.listener()).receive(&["SS"]), true);
-    assert_eq!(sink.drain(), vec!["SS", "SS"]);
+    assert_eq!((log.listener(), log.listener()).receive(&["SS"]), true);
+    assert_eq!(log.drain(), vec!["SS", "SS"]);
 
     // Tuple of dead listener and dead listener is dead
     assert_eq!((NullListener, NullListener).receive(&["NN"]), false);
 }
 
 #[test]
-fn sink_alive() {
+fn log_alive() {
     let notifier: Notifier<()> = Notifier::new();
-    let sink = Sink::new();
-    notifier.listen(sink.listener());
+    let log = Log::new();
+    notifier.listen(log.listener());
     assert_eq!(notifier.count(), 1);
-    drop(sink);
+    drop(log);
     assert_eq!(notifier.count(), 0);
 }
 

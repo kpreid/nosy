@@ -48,39 +48,39 @@ where
 ///
 /// * `M` is the type of the messages.
 #[derive(Debug)]
-pub struct Sink<M>(StoreLock<Vec<M>>);
+pub struct Log<M>(StoreLock<Vec<M>>);
 
-/// [`Sink::listener()`] implementation.
+/// [`Log::listener()`] implementation.
 ///
 /// # Generic parameters
 ///
 /// * `M` is the type of the messages.
-pub struct SinkListener<M>(StoreLockListener<Vec<M>>);
+pub struct LogListener<M>(StoreLockListener<Vec<M>>);
 
-impl<M> Sink<M> {
-    /// Constructs a new empty [`Sink`].
+impl<M> Log<M> {
+    /// Constructs a new empty [`Log`].
     #[must_use]
     pub fn new() -> Self {
         Self(StoreLock::default())
     }
 
-    /// Returns a [`Listener`] which records the messages it receives in this Sink.
+    /// Returns a [`Listener`] which records the messages it receives in this `Log`.
     #[must_use]
-    pub fn listener(&self) -> SinkListener<M> {
-        SinkListener(self.0.listener())
+    pub fn listener(&self) -> LogListener<M> {
+        LogListener(self.0.listener())
     }
 
     /// Remove and return all messages returned so far.
     ///
     /// ```
-    /// use nosy::{Listener, Sink};
+    /// use nosy::{Listener, Log};
     ///
-    /// let sink = Sink::new();
-    /// sink.listener().receive(&[1]);
-    /// sink.listener().receive(&[2]);
-    /// assert_eq!(sink.drain(), vec![1, 2]);
-    /// sink.listener().receive(&[3]);
-    /// assert_eq!(sink.drain(), vec![3]);
+    /// let log = Log::new();
+    /// log.listener().receive(&[1]);
+    /// log.listener().receive(&[2]);
+    /// assert_eq!(log.drain(), vec![1, 2]);
+    /// log.listener().receive(&[3]);
+    /// assert_eq!(log.drain(), vec![3]);
     /// ```
     #[must_use]
     pub fn drain(&self) -> Vec<M> {
@@ -88,25 +88,25 @@ impl<M> Sink<M> {
     }
 }
 
-impl<M> fmt::Debug for SinkListener<M> {
+impl<M> fmt::Debug for LogListener<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("SinkListener").field(&self.0).finish()
+        f.debug_tuple("LogListener").field(&self.0).finish()
     }
 }
 
-impl<M: Clone + Send + Sync> Listener<M> for SinkListener<M> {
+impl<M: Clone + Send + Sync> Listener<M> for LogListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         self.0.receive(messages)
     }
 }
 
-impl<M> Clone for SinkListener<M> {
+impl<M> Clone for LogListener<M> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<M> Default for Sink<M> {
+impl<M> Default for Log<M> {
     // This implementation cannot be derived because we do not want M: Default
     fn default() -> Self {
         Self::new()

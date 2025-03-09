@@ -4,7 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use nosy::{sync, unsync, Flag, IntoDynListener as _, Listen, NullListener, Sink};
+use nosy::{sync, unsync, Flag, IntoDynListener as _, Listen, Log, NullListener};
 
 #[test]
 fn dyn_listen_is_possible() {
@@ -20,8 +20,8 @@ fn dyn_listen_is_possible() {
 
 #[test]
 fn dyn_listener_unsync() {
-    let sink = Sink::new();
-    let listener: unsync::DynListener<&str> = sink.listener().into_dyn_listener();
+    let log = Log::new();
+    let listener: unsync::DynListener<&str> = log.listener().into_dyn_listener();
 
     // Should not gain a new wrapper when erased() again.
     assert_eq!(
@@ -34,17 +34,17 @@ fn dyn_listener_unsync() {
 
     // Should deliver messages.
     assert!(listener.receive(&["a"]));
-    assert_eq!(sink.drain(), vec!["a"]);
+    assert_eq!(log.drain(), vec!["a"]);
 
     // Should report dead
-    drop(sink);
+    drop(log);
     assert!(!listener.receive(&[]));
     assert!(!listener.receive(&["b"]));
 }
 
 #[test]
 fn dyn_listener_sync() {
-    // Flag, unlike Sink, is always Send + Sync so is ok to use in this test
+    // Flag, unlike Log, is always Send + Sync so is ok to use in this test
     // without making it conditional.
     let flag = Flag::new(false);
     let listener: sync::DynListener<&str> = flag.listener().into_dyn_listener();

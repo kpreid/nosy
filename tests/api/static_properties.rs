@@ -109,13 +109,13 @@ const _: () = {
 
     assert_impl_all!(nosy::NullListener: Copy, Send, Sync, RefUnwindSafe, UnwindSafe);
 
-    assert_send_sync_if_cfg::<nosy::Sink<()>>();
-    assert_not_impl_any!(nosy::Sink<*const ()>: Send, Sync);
-    assert_not_impl_any!(nosy::Sink<()>: RefUnwindSafe, UnwindSafe);
+    assert_send_sync_if_cfg::<nosy::Log<()>>();
+    assert_not_impl_any!(nosy::Log<*const ()>: Send, Sync);
+    assert_not_impl_any!(nosy::Log<()>: RefUnwindSafe, UnwindSafe);
 
-    assert_impl_all!(nosy::SinkListener<()>: Clone);
-    assert_send_sync_if_cfg::<nosy::SinkListener<()>>();
-    assert_not_impl_any!(nosy::SinkListener<()>: RefUnwindSafe, UnwindSafe);
+    assert_impl_all!(nosy::LogListener<()>: Clone);
+    assert_send_sync_if_cfg::<nosy::LogListener<()>>();
+    assert_not_impl_any!(nosy::LogListener<()>: RefUnwindSafe, UnwindSafe);
 
     assert_impl_all!(nosy::StoreLock<Vec<()>>: Unpin);
     assert_not_impl_any!(nosy::StoreLock<Vec<()>>: RefUnwindSafe, UnwindSafe);
