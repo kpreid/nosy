@@ -84,6 +84,14 @@ const _: () = {
     assert_impl_all!(nosy::Gate: Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
     assert_impl_all!(nosy::GateListener<nosy::FlagListener>: Clone, Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
 
+    assert_send_sync_if_cfg::<nosy::Log<()>>();
+    assert_not_impl_any!(nosy::Log<*const ()>: Send, Sync);
+    assert_not_impl_any!(nosy::Log<()>: RefUnwindSafe, UnwindSafe);
+
+    assert_impl_all!(nosy::LogListener<()>: Clone);
+    assert_send_sync_if_cfg::<nosy::LogListener<()>>();
+    assert_not_impl_any!(nosy::LogListener<()>: RefUnwindSafe, UnwindSafe);
+
     // Notifier, sync and unsync flavors.
     // Always not RefUnwindSafe
     assert_impl_all!(nosy::unsync::Notifier<()>: Unpin);
@@ -108,14 +116,6 @@ const _: () = {
     }
 
     assert_impl_all!(nosy::NullListener: Copy, Send, Sync, RefUnwindSafe, UnwindSafe);
-
-    assert_send_sync_if_cfg::<nosy::Sink<()>>();
-    assert_not_impl_any!(nosy::Sink<*const ()>: Send, Sync);
-    assert_not_impl_any!(nosy::Sink<()>: RefUnwindSafe, UnwindSafe);
-
-    assert_impl_all!(nosy::SinkListener<()>: Clone);
-    assert_send_sync_if_cfg::<nosy::SinkListener<()>>();
-    assert_not_impl_any!(nosy::SinkListener<()>: RefUnwindSafe, UnwindSafe);
 
     assert_impl_all!(nosy::StoreLock<Vec<()>>: Unpin);
     assert_not_impl_any!(nosy::StoreLock<Vec<()>>: RefUnwindSafe, UnwindSafe);

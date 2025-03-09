@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::Arc;
 
 use super::flavor::Notifier;
-use nosy::{Listen as _, Listener, Sink};
+use nosy::{Listen as _, Listener, Log};
 
 #[test]
 fn basics_and_debug() {
@@ -10,15 +10,15 @@ fn basics_and_debug() {
     assert_eq!(format!("{cn:?}"), "Notifier(0)");
     cn.notify(&0);
     assert_eq!(format!("{cn:?}"), "Notifier(0)");
-    let sink = Sink::new();
-    cn.listen(sink.listener());
+    let log = Log::new();
+    cn.listen(log.listener());
     assert_eq!(format!("{cn:?}"), "Notifier(1)");
     // type annotation to prevent spurious inference failures in the presence
     // of other compiler errors
-    assert_eq!(sink.drain(), Vec::<u8>::new());
+    assert_eq!(log.drain(), Vec::<u8>::new());
     cn.notify(&1);
     cn.notify(&2);
-    assert_eq!(sink.drain(), vec![1, 2]);
+    assert_eq!(log.drain(), vec![1, 2]);
     assert_eq!(format!("{cn:?}"), "Notifier(1)");
 }
 

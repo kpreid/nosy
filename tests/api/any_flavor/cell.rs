@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use pretty_assertions::assert_eq;
 
-use nosy::{Listen as _, Sink, Source as _};
 use super::flavor;
+use nosy::{Listen as _, Log, Source as _};
 
 #[test]
 fn cell_and_source_debug() {
@@ -41,13 +41,13 @@ fn cell_usage() {
     let cell = flavor::Cell::<i32>::new(0i32);
 
     let s = cell.as_source();
-    let sink = Sink::new();
-    s.listen(sink.listener());
+    let log = Log::new();
+    s.listen(log.listener());
 
-    assert_eq!(sink.drain(), vec![]);
+    assert_eq!(log.drain(), vec![]);
     cell.set(1);
     assert_eq!(1, s.get());
-    assert_eq!(sink.drain(), vec![()]);
+    assert_eq!(log.drain(), vec![()]);
 }
 
 #[test]
