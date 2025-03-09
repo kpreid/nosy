@@ -155,16 +155,16 @@ pub trait Listener<M>: fmt::Debug {
     /// This may be used to stop forwarding messages when a dependency no longer exists.
     ///
     /// ```
-    /// use nosy::{Gate, Listen as _, Listener as _, Sink};
+    /// use nosy::{Listen as _, Listener as _};
     ///
-    /// let sink = Sink::new();
-    /// let (gate, gated) = sink.listener().gate();
+    /// let log = nosy::Log::new();
+    /// let (gate, gated) = log.listener().gate();
     /// gated.receive(&["kept1"]);
-    /// assert_eq!(sink.drain(), vec!["kept1"]);
+    /// assert_eq!(log.drain(), vec!["kept1"]);
     /// gated.receive(&["kept2"]);
     /// drop(gate);
     /// gated.receive(&["discarded"]);
-    /// assert_eq!(sink.drain(), vec!["kept2"]);
+    /// assert_eq!(log.drain(), vec!["kept2"]);
     /// ```
     fn gate(self) -> (Gate, crate::GateListener<Self>)
     where

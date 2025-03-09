@@ -172,7 +172,7 @@ mod listener;
 pub use listener::{IntoDynListener, Listen, Listener};
 
 mod simple_listeners;
-pub use simple_listeners::{Flag, FlagListener, NullListener, Sink, SinkListener};
+pub use simple_listeners::{Flag, FlagListener, Log, LogListener, NullListener};
 
 mod maybe_sync;
 
@@ -183,6 +183,11 @@ mod store;
 pub use store::{Store, StoreLock, StoreLockListener};
 
 mod util;
+
+#[deprecated = "use `Log` instead of `Sink`"]
+pub use Log as Sink;
+#[deprecated = "use `LogListener` instead of `SinkListener`"]
+pub use LogListener as SinkListener;
 
 // -------------------------------------------------------------------------------------------------
 

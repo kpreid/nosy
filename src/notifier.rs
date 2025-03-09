@@ -81,25 +81,25 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// ```
     /// use std::sync::Arc;
-    #[cfg_attr(feature = "sync", doc = " use nosy::{Listen, sync::Notifier, Sink};")]
+    #[cfg_attr(feature = "sync", doc = " use nosy::{Listen, sync::Notifier, Log};")]
     #[cfg_attr(
         not(feature = "sync"),
-        doc = " use nosy::{Listen, unsync::Notifier, Sink};"
+        doc = " use nosy::{Listen, unsync::Notifier, Log};"
     )]
     ///
     /// let notifier_1 = Notifier::new();
     /// let notifier_2 = Arc::new(Notifier::new());
-    /// let mut sink = Sink::new();
+    /// let mut log = Log::new();
     /// notifier_1.listen(Notifier::forwarder(Arc::downgrade(&notifier_2)));
-    /// notifier_2.listen(sink.listener());
+    /// notifier_2.listen(log.listener());
     /// # assert_eq!(notifier_1.count(), 1);
     /// # assert_eq!(notifier_2.count(), 1);
     ///
     /// notifier_1.notify(&"a");
-    /// assert_eq!(sink.drain(), vec!["a"]);
+    /// assert_eq!(log.drain(), vec!["a"]);
     /// drop(notifier_2);
     /// notifier_1.notify(&"a");
-    /// assert!(sink.drain().is_empty());
+    /// assert!(log.drain().is_empty());
     ///
     /// # assert_eq!(notifier_1.count(), 0);
     /// ```
@@ -149,24 +149,24 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     /// # Example
     ///
     /// ```
-    /// use nosy::{Listen as _, unsync::Notifier, Sink};
+    /// use nosy::{Listen as _, unsync::Notifier, Log};
     ///
     /// let notifier: Notifier<&str> = Notifier::new();
-    /// let sink: Sink<&str> = Sink::new();
-    /// notifier.listen(sink.listener());
+    /// let log: Log<&str> = Log::new();
+    /// notifier.listen(log.listener());
     ///
     /// let mut buffer = notifier.buffer::<2>();
     ///
     /// // The buffer fills up and sends after two messages.
     /// buffer.push("hello");
-    /// assert!(sink.drain().is_empty());
+    /// assert!(log.drain().is_empty());
     /// buffer.push("and");
-    /// assert_eq!(sink.drain(), vec!["hello", "and"]);
+    /// assert_eq!(log.drain(), vec!["hello", "and"]);
     ///
     /// // The buffer also sends when it is dropped.
     /// buffer.push("goodbye");
     /// drop(buffer);
-    /// assert_eq!(sink.drain(), vec!["goodbye"]);
+    /// assert_eq!(log.drain(), vec!["goodbye"]);
     /// ```
     pub fn buffer<const CAPACITY: usize>(&self) -> Buffer<'_, M, L, CAPACITY> {
         Buffer::new(self)
