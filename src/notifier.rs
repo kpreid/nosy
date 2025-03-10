@@ -178,30 +178,8 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     /// This operation is intended for testing and diagnostic purposes.
     pub fn count(&self) -> usize {
         let mut state = self.state.write();
-        Self::cleanup(&mut state);
+        state.drop_dead_listeners();
         state.len()
-    }
-
-    /// Discard all dead listeners and return the count of live ones.
-    #[mutants::skip] // there are many ways to subtly break this
-    fn cleanup(state: &mut State<L>) {
-        match state {
-            State::Closed => {}
-            State::Open(listeners) => {
-                let mut i = 0;
-                while i < listeners.len() {
-                    let entry = &listeners[i];
-                    // We must ask the listener, not just consult was_alive, in order to avoid
-                    // leaking memory if listen() is called repeatedly without any notify().
-                    // TODO: But we can skip it if the last operation was notify().
-                    if entry.was_alive.load(Relaxed) && entry.listener.receive(&[]) {
-                        i += 1;
-                    } else {
-                        listeners.swap_remove(i);
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -215,8 +193,7 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
             return;
         }
         let state = &mut *self.state.write();
-        // TODO: consider amortization by not doing cleanup every time
-        Self::cleanup(state);
+        state.drop_dead_if_full();
         match state {
             State::Closed => {}
             State::Open(listeners) => {
@@ -238,7 +215,7 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
         }
         let state = &mut *self.state.write();
         // TODO: consider amortization by not doing cleanup every time
-        Self::cleanup(state);
+        state.drop_dead_if_full();
         match state {
             State::Closed => {}
             State::Open(listeners) => {
@@ -273,6 +250,48 @@ impl<L> State<L> {
         match self {
             State::Open(listeners) => listeners.len(),
             State::Closed => 0,
+        }
+    }
+
+    /// Discard all dead listeners if necessary to free up room in the listener storage.
+    #[mutants::skip] // difficult to test
+    fn drop_dead_if_full<M>(&mut self)
+    where
+        L: Listener<M>,
+    {
+        match self {
+            State::Closed => {}
+            State::Open(listeners) => {
+                let full = listeners.len() >= listeners.capacity();
+                if full {
+                    self.drop_dead_listeners();
+                }
+            }
+        }
+    }
+
+    /// Discard all dead listeners and return the count of live ones.
+    #[mutants::skip] // there are many ways to subtly break this
+    fn drop_dead_listeners<M>(&mut self)
+    where
+        L: Listener<M>,
+    {
+        match self {
+            State::Closed => {}
+            State::Open(listeners) => {
+                let mut i = 0;
+                while i < listeners.len() {
+                    let entry = &listeners[i];
+                    // We must ask the listener, not just consult was_alive, in order to avoid
+                    // leaking memory if listen() is called repeatedly without any notify().
+                    // TODO: But we can skip it if the last operation was notify().
+                    if entry.was_alive.load(Relaxed) && entry.listener.receive(&[]) {
+                        i += 1;
+                    } else {
+                        listeners.swap_remove(i);
+                    }
+                }
+            }
         }
     }
 }
