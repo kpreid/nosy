@@ -17,11 +17,61 @@ use crate::Listener;
 /// as rectangles, then one might define a `Store` owning an `Option<Rect>` that contains the union
 /// of all the rectangle messages, as an adequate constant-space approximation of the whole.
 ///
-/// TODO: give example
 ///
 /// # Generic parameters
 ///
 /// * `M` is the type of message that can be received.
+///
+/// # Example
+///
+/// ```rust
+/// use nosy::{Listen as _, Listener as _, StoreLock};
+/// use nosy::unsync::{Cell, Notifier};
+///
+/// /// Message type delivered from other sources.
+/// /// (This enum might be aggregated from multiple `Source`s’ change notifications.)
+/// #[derive(Debug)]
+/// enum WindowChange {
+///     Resized,
+///     Contents,
+/// }
+///
+/// /// Tracks what we need to do in response to the messages.
+/// #[derive(Debug, Default, PartialEq)]
+/// struct Todo {
+///     resize: bool,
+///     redraw: bool,
+/// }
+///
+/// impl nosy::Store<WindowChange> for Todo {
+///     fn receive(&mut self, messages: &[WindowChange]) {
+///         for message in messages {
+///             match message {
+///                 WindowChange::Resized => {
+///                     self.resize = true;
+///                     self.redraw = true;
+///                 }
+///                 WindowChange::Contents => {
+///                     self.redraw = true;
+///                 }
+///             }
+///         }
+///     }
+/// }
+///
+/// // These would actually come from external data sources.
+/// let window_size: Cell<[u32; 2]> = Cell::new([100, 100]);
+/// let contents_notifier: Notifier<()> = Notifier::new();
+///
+/// // Create the store and attach its listener to the data sources.
+/// let todo_store: StoreLock<Todo> = StoreLock::default();
+/// window_size.listen(todo_store.listener().filter(|()| Some(WindowChange::Resized)));
+/// contents_notifier.listen(todo_store.listener().filter(|()| Some(WindowChange::Contents)));
+///
+/// // Make a change and see it reflected in the store.
+/// window_size.set([200, 120]);
+/// assert_eq!(todo_store.take(), Todo { resize: true, redraw: true });
+/// ```
 pub trait Store<M> {
     /// Record the given series of messages.
     ///
@@ -35,11 +85,9 @@ pub trait Store<M> {
     /// * Do not panic under any possible incoming message stream,
     ///   in order to ensure the sender's other work is not interfered with.
     ///
-    /// * Do not acquire any locks, for performance and to avoid
-    ///   deadlock with locks held by the sender.
+    /// * Do not perform any blocking operation, such as acquiring locks,
+    ///   for performance and to avoid deadlock with locks held by the sender.
     ///   (Normally, locking is to be provided separately, e.g. by [`StoreLock`].)
-    ///  
-    /// * Do not perform any blocking operation except for such locks.
     ///
     /// * Do not access thread-local state, since this may be called from whichever thread(s)
     ///   the sender is using.
@@ -116,6 +164,7 @@ impl<T: ?Sized> StoreLock<T> {
     ///
     /// Callers should be careful to hold the lock for a very short time (e.g. only to copy or
     /// [take](core::mem::take) the data) or to do so only while messages will not be arriving.
+    /// Otherwise, poor performance or deadlock may result.
     ///
     /// # Panics
     ///
@@ -126,8 +175,34 @@ impl<T: ?Sized> StoreLock<T> {
         self.0.lock()
     }
 
+    /// Replaces the current state with [`T::default()`](Default) and returns it.
+    ///
+    /// This is not more powerful than [`lock()`](Self::lock),
+    /// but it offers the guarantee that it will hold the lock for as little time as possible.
+    /// It is equivalent to `mem::replace(&mut *self.0.lock(), T::default())`.
+    ///
+    /// # Panics
+    ///
+    /// If it is called while the same thread has already acquired the lock, it may panic or hang,
+    /// depending on the mutex implementation in use.
+    #[must_use]
+    pub fn take(&self) -> T
+    where
+        T: Sized + Default,
+    {
+        // We are not using mem::take() so as to avoid executing `T::default()` with the lock held.
+        let replacement: T = T::default();
+        let state: &mut T = &mut *self.0.lock();
+        core::mem::replace(state, replacement)
+    }
+
     /// Delivers messages like `self.listener().receive(messages)`,
     /// but without creating a temporary listener.
+    ///
+    /// # Panics
+    ///
+    /// If it is called while the same thread has already acquired the lock, it may panic or hang,
+    /// depending on the mutex implementation in use.
     pub fn receive<M>(&self, messages: &[M])
     where
         T: Store<M>,
