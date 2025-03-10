@@ -1,10 +1,5 @@
 //! Containers for single values which notify when the value is changed.
 
-#![allow(
-    clippy::module_name_repetitions,
-    reason = "false positive on private module; TODO: remove after Rust 1.84 is released"
-)]
-
 use core::fmt;
 use core::marker::PhantomData;
 
