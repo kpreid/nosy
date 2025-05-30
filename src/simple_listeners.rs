@@ -47,7 +47,6 @@ where
 /// # Generic parameters
 ///
 /// * `M` is the type of the messages.
-#[derive(Debug)]
 pub struct Log<M>(StoreLock<Vec<M>>);
 
 /// [`Log::listener()`] implementation.
@@ -88,9 +87,18 @@ impl<M> Log<M> {
     }
 }
 
+impl<M: fmt::Debug> fmt::Debug for Log<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Log(store) = self;
+        f.debug_tuple("Log").field(&*store.lock()).finish()
+    }
+}
+
 impl<M> fmt::Debug for LogListener<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("LogListener").field(&self.0).finish()
+        f.debug_struct("LogListener")
+            .field("alive", &self.0.alive())
+            .finish()
     }
 }
 
