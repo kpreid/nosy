@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::Arc;
 
-use super::flavor::Notifier;
+use super::flavor::{Notifier, RawNotifier};
 use nosy::{Listen as _, Listener, Log};
 
 #[test]
@@ -20,6 +20,23 @@ fn basics_and_debug() {
     cn.notify(&2);
     assert_eq!(log.drain(), vec![1, 2]);
     assert_eq!(format!("{cn:?}"), "Notifier(1)");
+}
+#[test]
+fn basics_and_debug_raw() {
+    let mut cn: RawNotifier<u8> = RawNotifier::new();
+    assert_eq!(format!("{cn:?}"), "RawNotifier(0)");
+    cn.notify(&0);
+    assert_eq!(format!("{cn:?}"), "RawNotifier(0)");
+    let log = Log::new();
+    cn.listen(log.listener());
+    assert_eq!(format!("{cn:?}"), "RawNotifier(1)");
+    // type annotation to prevent spurious inference failures in the presence
+    // of other compiler errors
+    assert_eq!(log.drain(), Vec::<u8>::new());
+    cn.notify(&1);
+    cn.notify(&2);
+    assert_eq!(log.drain(), vec![1, 2]);
+    assert_eq!(format!("{cn:?}"), "RawNotifier(1)");
 }
 
 // Test for NotifierForwarder functionality exists as a doc-test.
@@ -58,6 +75,7 @@ fn close_drops_listeners() {
     notifier.close();
     assert_eq!(weak.strong_count(), 0);
 }
+// RawNotifier has no close(), so nothing to test.
 
 #[test]
 #[should_panic = "cannot send messages after Notifier::close()"]
@@ -66,6 +84,7 @@ fn notify_after_close() {
     notifier.close();
     notifier.notify(&());
 }
+// RawNotifier has no close(), so nothing to test.
 
 #[test]
 fn drops_listeners_even_with_no_messages() {
@@ -119,3 +138,4 @@ fn drops_listeners_even_with_no_messages() {
         "excessive receive()s: {count}"
     );
 }
+// TODO: make drops_listeners_even_with_no_messages for RawNotifier too
