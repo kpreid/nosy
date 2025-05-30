@@ -141,7 +141,7 @@ impl<T: ?Sized> fmt::Debug for StoreLockListener<T> {
             // without being too verbose or nondeterministic by printing the whole current state.
             .field("type", &crate::util::Unquote::type_name::<T>())
             // not useful to print weak_target unless we were to upgrade and lock it
-            .field("alive", &(self.0.strong_count() > 0))
+            .field("alive", &self.alive())
             .finish()
     }
 }
@@ -208,6 +208,13 @@ impl<T: ?Sized> StoreLock<T> {
         T: Store<M>,
     {
         receive_bare_mutex(&self.0, messages);
+    }
+}
+
+impl<T: ?Sized> StoreLockListener<T> {
+    /// Used in [`fmt::Debug`] implementations.
+    pub(crate) fn alive(&self) -> bool {
+        self.0.strong_count() > 0
     }
 }
 

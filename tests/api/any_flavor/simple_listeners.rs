@@ -39,6 +39,30 @@ fn log_alive() {
 }
 
 #[test]
+fn log_debug() {
+    assert_eq!(format!("{:?}", Log::<i32>::new()), "Log([])");
+
+    let log: Log<i32> = Log::new();
+    let listener = log.listener();
+    assert_eq!(
+        format!("{log:?} {listener:?}"),
+        "Log([]) LogListener { alive: true }"
+    );
+    listener.receive(&[123]);
+    assert_eq!(
+        format!("{log:?} {listener:?}"),
+        "Log([123]) LogListener { alive: true }"
+    );
+    _ = log.drain();
+    assert_eq!(
+        format!("{log:?} {listener:?}"),
+        "Log([]) LogListener { alive: true }"
+    );
+    drop(log);
+    assert_eq!(format!("{listener:?}"), "LogListener { alive: false }");
+}
+
+#[test]
 fn flag_alive() {
     let notifier: Notifier<()> = Notifier::new();
     let flag = Flag::new(false);
