@@ -1,8 +1,9 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::Relaxed};
 use std::sync::Arc;
 
-use super::flavor::Notifier;
-use nosy::{Listen as _, Listener, Log};
+use super::flavor::{Notifier, RawNotifier};
+use nosy::sync::DynListener;
+use nosy::{IntoDynListener, Listen as _, Listener, Log};
 
 #[test]
 fn basics_and_debug() {
@@ -20,6 +21,23 @@ fn basics_and_debug() {
     cn.notify(&2);
     assert_eq!(log.drain(), vec![1, 2]);
     assert_eq!(format!("{cn:?}"), "Notifier(1)");
+}
+#[test]
+fn basics_and_debug_raw() {
+    let mut cn: RawNotifier<u8> = RawNotifier::new();
+    assert_eq!(format!("{cn:?}"), "RawNotifier(0)");
+    cn.notify(&0);
+    assert_eq!(format!("{cn:?}"), "RawNotifier(0)");
+    let log = Log::new();
+    cn.listen(log.listener());
+    assert_eq!(format!("{cn:?}"), "RawNotifier(1)");
+    // type annotation to prevent spurious inference failures in the presence
+    // of other compiler errors
+    assert_eq!(log.drain(), Vec::<u8>::new());
+    cn.notify(&1);
+    cn.notify(&2);
+    assert_eq!(log.drain(), vec![1, 2]);
+    assert_eq!(format!("{cn:?}"), "RawNotifier(1)");
 }
 
 // Test for NotifierForwarder functionality exists as a doc-test.
@@ -58,6 +76,7 @@ fn close_drops_listeners() {
     notifier.close();
     assert_eq!(weak.strong_count(), 0);
 }
+// RawNotifier has no close(), so nothing to test.
 
 #[test]
 #[should_panic = "cannot send messages after Notifier::close()"]
@@ -66,45 +85,61 @@ fn notify_after_close() {
     notifier.close();
     notifier.notify(&());
 }
+// RawNotifier has no close(), so nothing to test.
 
 #[test]
-fn drops_listeners_even_with_no_messages() {
-    static COUNT_EXISTS: AtomicU32 = AtomicU32::new(0);
-    static COUNT_RECEIVES: AtomicU32 = AtomicU32::new(0);
+fn drops_listeners_even_with_no_messages_regular() {
+    let notifier = Notifier::<()>::new();
+    drops_listeners_even_with_no_messages(&mut |l| notifier.listen(l));
+}
+#[test]
+fn drops_listeners_even_with_no_messages_raw() {
+    let mut notifier = RawNotifier::<()>::new();
+    drops_listeners_even_with_no_messages(&mut |l| notifier.listen(l));
+}
+fn drops_listeners_even_with_no_messages(listen: &mut dyn FnMut(DynListener<()>)) {
+    #[derive(Debug, Default)]
+    struct Counters {
+        exists: AtomicU32,
+        receives: AtomicU32,
+    }
+
+    let counters: Arc<Counters> = Arc::default();
 
     #[derive(Debug)]
     struct MomentaryListener {
+        counters: Arc<Counters>,
         first: AtomicBool,
     }
     impl MomentaryListener {
-        fn new() -> Self {
-            COUNT_EXISTS.fetch_add(1, Relaxed);
+        fn new(counters: Arc<Counters>) -> Self {
+            counters.exists.fetch_add(1, Relaxed);
             Self {
+                counters,
                 first: AtomicBool::new(true),
             }
         }
     }
     impl Listener<()> for MomentaryListener {
         fn receive(&self, _: &[()]) -> bool {
-            COUNT_RECEIVES.fetch_add(1, Relaxed);
+            self.counters.receives.fetch_add(1, Relaxed);
             self.first.swap(false, Relaxed)
         }
     }
     impl Drop for MomentaryListener {
         fn drop(&mut self) {
-            COUNT_EXISTS.fetch_sub(1, Relaxed);
+            self.counters.exists.fetch_sub(1, Relaxed);
         }
     }
 
-    let notifier = Notifier::<()>::new();
     for _ in 0..100 {
-        notifier.listen(MomentaryListener::new());
+        listen(MomentaryListener::new(counters.clone()).into_dyn_listener());
     }
 
     // The exact number here will depend on the details of `Notifier` and `Vec`;
     // we are assuming in particular that the `Vec`'s capacity will not be 10 or more.
     // If the count is zero, then that is a sign that this test is broken.
-    let count = COUNT_EXISTS.load(Relaxed);
+    let count = counters.exists.load(Relaxed);
     assert!(
         (0..10).contains(&count),
         "listeners leaked or dropped early: {count}"
@@ -113,7 +148,7 @@ fn drops_listeners_even_with_no_messages() {
     // Check that the total number of receive() calls is reasonable.
     // If this value is greater than twice the number of listeners, then one of them
     // must have been invoked a third time, which is a bad sign though not strictly prohibited.
-    let count = dbg!(COUNT_RECEIVES.load(Relaxed));
+    let count = dbg!(counters.receives.load(Relaxed));
     assert!(
         (190..=200).contains(&count),
         "excessive receive()s: {count}"

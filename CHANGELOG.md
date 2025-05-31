@@ -10,6 +10,7 @@
 - `impl Default for CellWithLocal`
 - `impl Listen for Cell`
 - `impl Listen for CellWithLocal`
+- `RawListener`, for when `Notifier`’s interior mutability is undesirable.
 
 ### Changed
 

@@ -93,7 +93,7 @@ const _: () = {
     assert_not_impl_any!(nosy::LogListener<()>: RefUnwindSafe, UnwindSafe);
 
     // Notifier, sync and unsync flavors.
-    // Always not RefUnwindSafe
+    // Always not RefUnwindSafe because listeners are not.
     assert_impl_all!(nosy::unsync::Notifier<()>: Unpin);
     assert_not_impl_any!(nosy::unsync::Notifier<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
     assert_not_impl_any!(nosy::unsync::Notifier<*const ()>: Send, Sync);
@@ -116,6 +116,17 @@ const _: () = {
     }
 
     assert_impl_all!(nosy::NullListener: Copy, Send, Sync, RefUnwindSafe, UnwindSafe);
+
+    // RawNotifier, sync and unsync flavors.
+    // Always not RefUnwindSafe because listeners are not.
+    assert_impl_all!(nosy::unsync::RawNotifier<()>: Unpin);
+    assert_not_impl_any!(nosy::unsync::RawNotifier<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
+    assert_not_impl_any!(nosy::unsync::RawNotifier<*const ()>: Send, Sync);
+    assert_impl_all!(nosy::sync::RawNotifier<()>: Send, Sync, Unpin);
+    // A RawNotifier with a !Send + !Sync message type is still Send + Sync
+    // because it does not *contain* the messages.
+    assert_impl_all!(nosy::sync::RawNotifier<*const ()>: Send, Sync);
+    assert_not_impl_any!(nosy::sync::RawNotifier<()>: RefUnwindSafe, UnwindSafe);
 
     assert_impl_all!(nosy::StoreLock<Vec<()>>: Unpin);
     assert_not_impl_any!(nosy::StoreLock<Vec<()>>: RefUnwindSafe, UnwindSafe);

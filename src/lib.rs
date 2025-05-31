@@ -78,6 +78,10 @@
 //!   Makes use of [`std::sync`] to add [`Sync`] functionality for delivering messages across
 //!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
+//!   It is possible to use a subset of `nosy`’s functionality as `Send + Sync` without enabling
+//!   this feature and without depending on `std`.
+//!   In particular, you may wish to use [`sync::RawNotifier`].
+//!
 //! # Limitations
 //!
 //! Besides the logical consequences of the architecture, there are some costs due to implementation
@@ -177,7 +181,7 @@ pub use simple_listeners::{Flag, FlagListener, Log, LogListener, NullListener};
 mod maybe_sync;
 
 mod notifier;
-pub use notifier::{Buffer, Notifier, NotifierForwarder};
+pub use notifier::{Buffer, Notifier, NotifierForwarder, RawBuffer, RawNotifier};
 
 mod store;
 pub use store::{Store, StoreLock, StoreLockListener};
@@ -218,6 +222,16 @@ pub mod sync {
     /// When this requirement is undesired, use [`unsync::Notifier`] instead.
     #[cfg(feature = "sync")]
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
+
+    /// Message broadcaster without interior mutability.
+    ///
+    /// This type is [`Send`] and [`Sync`] and therefore requires all its [`Listener`]s to be so.
+    /// When this requirement is undesired, use [`unsync::Notifier`] or [`unsync::RawNotifier`]
+    /// instead.
+    ///
+    /// Its advantage over `Notifier` is that it is available even without `feature = "sync"`
+    /// (without depending on `std`).
+    pub type RawNotifier<M> = crate::RawNotifier<M, DynListener<M>>;
 
     /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
     ///
@@ -295,6 +309,12 @@ pub mod unsync {
     /// This type is not [`Send`] or [`Sync`]. When that is needed, use
     /// [`sync::Notifier`] instead.
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
+
+    /// Message broadcaster without interior mutability.
+    ///
+    /// This type has little advantage over [`Notifier`]; use it only when you require a drop-in
+    /// replacement for [`sync::RawNotifier`] without requiring the listeners to be `Send + Sync`.
+    pub type RawNotifier<M> = crate::RawNotifier<M, DynListener<M>>;
 
     /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
     ///
