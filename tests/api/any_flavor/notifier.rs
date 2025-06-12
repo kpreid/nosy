@@ -154,3 +154,43 @@ fn drops_listeners_even_with_no_messages(listen: &mut dyn FnMut(DynListener<()>)
         "excessive receive()s: {count}"
     );
 }
+
+#[test]
+fn count_regular() {
+    let n: Notifier<u8> = Notifier::new();
+    assert_eq!(n.count(), 0);
+
+    let log1 = Log::<u8>::new();
+    n.listen(log1.listener());
+    assert_eq!(n.count(), 1);
+
+    let log2 = Log::<u8>::new();
+    n.listen(log2.listener());
+    assert_eq!(n.count(), 2);
+
+    drop(log1);
+    assert_eq!(n.count(), 1);
+
+    drop(log2);
+    assert_eq!(n.count(), 0);
+}
+
+#[test]
+fn count_raw() {
+    let mut n: RawNotifier<u8> = RawNotifier::new();
+    assert_eq!(n.count(), 0);
+
+    let log1 = Log::<u8>::new();
+    n.listen(log1.listener());
+    assert_eq!(n.count(), 1);
+
+    let log2 = Log::<u8>::new();
+    n.listen(log2.listener());
+    assert_eq!(n.count(), 2);
+
+    drop(log1);
+    assert_eq!(n.count(), 1);
+
+    drop(log2);
+    assert_eq!(n.count(), 0);
+}
