@@ -26,8 +26,8 @@ you would probably be better off using a conventional broadcast channel or watch
 It is also not a good choice if it is critical that no third-party code executes on your thread
 or while your function is running.
 
-# Platform requirements
------------------------
+Platform requirements
+---------------------
 
 `nosy` is compatible with `no_std` platforms.
 The minimum requirements for using `nosy` are the following.
