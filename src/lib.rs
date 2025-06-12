@@ -189,9 +189,11 @@ pub use store::{Store, StoreLock, StoreLockListener};
 mod util;
 
 #[deprecated = "use `Log` instead of `Sink`"]
-pub use Log as Sink;
+#[allow(missing_docs)]
+pub type Sink<M> = Log<M>;
 #[deprecated = "use `LogListener` instead of `SinkListener`"]
-pub use LogListener as SinkListener;
+#[allow(missing_docs)]
+pub type SinkListener<M> = LogListener<M>;
 
 // -------------------------------------------------------------------------------------------------
 
