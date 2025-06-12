@@ -3,7 +3,7 @@ members = ["xtask"]
 
 [package]
 name = "nosy"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.83.0"
 description = "Change notification / observation / broadcast channels, with filtering and coalescing. no_std compatible."
