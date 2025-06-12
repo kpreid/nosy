@@ -11,6 +11,7 @@ repository = "https://github.com/kpreid/nosy/"
 license = "MIT OR Apache-2.0"
 categories = ["asynchronous", "no-std"]
 keywords = ["change-notification", "listener", "observer", "observable"]
+include = ["/src", "/tests", "/CHANGELOG.md", "/README.md", "/LICENSE-APACHE", "/LICENSE-MIT", "!.*"]
 
 [package.metadata.docs.rs]
 all-features = true
