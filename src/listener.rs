@@ -3,7 +3,7 @@ use core::fmt;
 use crate::{sync, unsync, Filter, Gate};
 
 #[cfg(doc)]
-use crate::{Notifier, Store, StoreLock};
+use crate::{FlagListener, Notifier, Store, StoreLock};
 
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
 /// A receiver of messages (typically from something implementing [`Listen`]) which can
@@ -177,6 +177,7 @@ pub trait Listener<M>: fmt::Debug {
 // -------------------------------------------------------------------------------------------------
 // Type-erasure related traits and impls.
 
+#[cfg_attr(not(feature = "async"), allow(rustdoc::broken_intra_doc_links))]
 /// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
 ///
 /// This trait is typically used via calling [`Listen::listen()`], or an [`IntoListener`] bound
@@ -190,6 +191,61 @@ pub trait Listener<M>: fmt::Debug {
 /// * `Self` is the listener type being converted to.
 /// * `L` is the listener type being converted from.
 /// * `M` is the type of message accepted by the listener.
+///
+/// # Example implementation
+///
+/// Suppose that you want to use *only* [`Flag`][crate::Flag] and
+/// [`WakeFlag`][crate::future::WakeFlag] listeners,
+/// perhaps because they use atomic operations and no custom code or locks.
+/// A custom implementation of [`FromListener`] can offer this restriction, and
+/// potential performance improvement by avoiding indirection and allocation:
+///
+/// ```
+#[cfg_attr(not(feature = "async"), doc = "# #[cfg(any())] mod dummy {")] // skip if nosy::future::WakeFlag doesn't exist
+/// use nosy::Listen as _;
+///
+/// /// A non-boxing type for all `Flag` listeners and no other kinds of listener.
+/// #[derive(Debug)]
+/// enum AnyFlag {
+///     NoWake(nosy::FlagListener),
+///     Wake(nosy::future::WakeFlagListener),
+/// }
+///
+/// // Dispatches to the listeners in each variant.
+/// impl<M> nosy::Listener<M> for AnyFlag {
+///     fn receive(&self, messages: &[M]) -> bool {
+///        match self {
+///            Self::NoWake(l) => l.receive(messages),
+///            Self::Wake(l) => l.receive(messages),
+///        }
+///     }
+/// }
+///
+/// // Whenever possible, provide a reflexive, idempotent implementation,
+/// // so that an already-converted listener can still be passed to `listen()` methods.
+/// impl<M> nosy::FromListener<AnyFlag, M> for AnyFlag {
+///     fn from_listener(listener: AnyFlag) -> AnyFlag {
+///         listener
+///     }
+/// }
+///
+/// // The actual work of conversion.
+/// impl<M> nosy::FromListener<nosy::FlagListener, M> for AnyFlag {
+///     fn from_listener(listener: nosy::FlagListener) -> AnyFlag {
+///         AnyFlag::NoWake(listener)
+///     }
+/// }
+/// impl<M> nosy::FromListener<nosy::future::WakeFlagListener, M> for AnyFlag {
+///     fn from_listener(listener: nosy::future::WakeFlagListener) -> AnyFlag {
+///         AnyFlag::Wake(listener)
+///     }
+/// }
+///
+/// fn example_usage(notifier: &nosy::Notifier<(), AnyFlag>) {
+///     notifier.listen(nosy::Flag::new(false).listener());
+/// }
+#[cfg_attr(not(feature = "async"), doc = "# }")] // skip if nosy::future::WakeFlag doesn't exist
+/// ```
 ///
 /// # Why not `From`?
 ///
