@@ -242,24 +242,24 @@ impl<M, L: Listener<M>> RawNotifier<M, L> {
     /// # Example
     ///
     /// ```
-    /// use nosy::{Listen as _, unsync::RawNotifier, Sink};
+    /// use nosy::{Listen as _, unsync::RawNotifier, Log};
     ///
     /// let mut notifier: RawNotifier<&str> = RawNotifier::new();
-    /// let sink: Sink<&str> = Sink::new();
-    /// notifier.listen(sink.listener());
+    /// let log: Log<&str> = Log::new();
+    /// notifier.listen(log.listener());
     ///
     /// let mut buffer = notifier.buffer::<2>();
     ///
     /// // The buffer fills up and sends after two messages.
     /// buffer.push("hello");
-    /// assert!(sink.drain().is_empty());
+    /// assert!(log.drain().is_empty());
     /// buffer.push("and");
-    /// assert_eq!(sink.drain(), vec!["hello", "and"]);
+    /// assert_eq!(log.drain(), vec!["hello", "and"]);
     ///
     /// // The buffer also sends when it is dropped.
     /// buffer.push("goodbye");
     /// drop(buffer);
-    /// assert_eq!(sink.drain(), vec!["goodbye"]);
+    /// assert_eq!(log.drain(), vec!["goodbye"]);
     /// ```
     pub fn buffer<const CAPACITY: usize>(&mut self) -> RawBuffer<'_, M, L, CAPACITY> {
         RawBuffer::new(self)
