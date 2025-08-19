@@ -47,12 +47,12 @@ const _: () = {
 
     // CellSource, sync and unsync flavors.
     type CellSourceU<T> = nosy::CellSource<T, nosy::unsync::DynListener<()>>;
-    type CellSourceS<T> = nosy::CellSource<T, nosy::sync::DynListener<()>>;
     assert_impl_all!(CellSourceU<()>: Unpin);
     assert_not_impl_any!(CellSourceU<()>: Send, Sync, RefUnwindSafe, UnwindSafe);
     assert_not_impl_any!(CellSourceU<*const ()>: Send, Sync);
     #[cfg(feature = "sync")]
     {
+        type CellSourceS<T> = nosy::CellSource<T, nosy::sync::DynListener<()>>;
         assert_impl_all!(CellSourceS<()>: Send, Sync, Unpin);
         assert_not_impl_any!(CellSourceS<*const ()>: Send, Sync);
         assert_not_impl_any!(CellSourceS<()>: RefUnwindSafe, UnwindSafe);
