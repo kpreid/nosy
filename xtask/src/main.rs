@@ -23,6 +23,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn cargo(sh: &Shell) -> Cmd {
+fn cargo(sh: &Shell) -> Cmd<'_> {
     sh.cmd(std::env::var("CARGO").expect("CARGO environment variable not set"))
 }
