@@ -8,7 +8,7 @@ use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use alloc::sync::Arc;
 
 use crate::maybe_sync::RwLock;
-use crate::{IntoDynListener, Listen, Listener};
+use crate::{IntoListener, Listen, Listener};
 
 #[cfg(doc)]
 use crate::{sync, Source};
@@ -266,7 +266,7 @@ impl<M, L: Listener<M>> RawNotifier<M, L> {
     }
 
     /// Add a listener which will receive future messages.
-    pub fn listen<L2: IntoDynListener<M, L>>(&mut self, listener: L2) {
+    pub fn listen<L2: IntoListener<L, M>>(&mut self, listener: L2) {
         if !listener.receive(&[]) {
             // skip adding it if it's already dead
             return;
@@ -275,12 +275,12 @@ impl<M, L: Listener<M>> RawNotifier<M, L> {
         self.drop_dead_if_full();
 
         self.listeners.push(NotifierEntry {
-            listener: listener.into_dyn_listener(),
+            listener: listener.into_listener(),
             was_alive: AtomicBool::new(true),
         });
     }
 
-    /// Identical to [`Self::listen()`] except that it doesn't call `into_dyn_listener()`.
+    /// Identical to [`Self::listen()`] except that it doesn't call `IntoListener::into_listener()`.
     fn listen_raw(&mut self, listener: L) {
         if !listener.receive(&[]) {
             // skip adding it if it's already dead
@@ -353,8 +353,8 @@ impl<M, L: Listener<M>> Listen for Notifier<M, L> {
     }
 
     // By adding this implementation instead of taking the default, we can defer
-    // `into_dyn_listener()` until we've done the early exit test.
-    fn listen<L2: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
+    // `FromListener::from_listener()` until we've done the early exit test.
+    fn listen<L2: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L2) {
         match *self.state.write() {
             State::Open(ref mut raw_notifier) => raw_notifier.listen(listener),
             State::Closed => {}

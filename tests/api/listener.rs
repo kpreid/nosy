@@ -4,7 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use nosy::{sync, unsync, Flag, IntoDynListener as _, Listen, Log, NullListener};
+use nosy::{sync, unsync, Flag, FromListener, Listen, Log, NullListener};
 
 #[test]
 fn dyn_listen_is_possible() {
@@ -12,7 +12,7 @@ fn dyn_listen_is_possible() {
     let dyn_listen: &dyn Listen<Msg = (), Listener = unsync::DynListener<()>> = &notifier;
 
     // This is a direct trait object method call.
-    dyn_listen.listen_raw(NullListener.into_dyn_listener());
+    dyn_listen.listen_raw(unsync::DynListener::from_listener(NullListener));
 
     // This uses `impl Listen for &T` to be able to use the generic `listen()` method.
     (&dyn_listen).listen(NullListener);
@@ -21,12 +21,12 @@ fn dyn_listen_is_possible() {
 #[test]
 fn dyn_listener_unsync() {
     let log = Log::new();
-    let listener: unsync::DynListener<&str> = log.listener().into_dyn_listener();
+    let listener = unsync::DynListener::<&str>::from_listener(log.listener());
 
-    // Should not gain a new wrapper when erased() again.
+    // Should not gain a new wrapper when we use from_listener again.
     assert_eq!(
         Rc::as_ptr(&listener),
-        Rc::as_ptr(&listener.clone().into_dyn_listener())
+        Rc::as_ptr(&FromListener::from_listener(listener.clone()))
     );
 
     // Should report alive (and not infinitely recurse).
@@ -47,12 +47,12 @@ fn dyn_listener_sync() {
     // Flag, unlike Log, is always Send + Sync so is ok to use in this test
     // without making it conditional.
     let flag = Flag::new(false);
-    let listener: sync::DynListener<&str> = flag.listener().into_dyn_listener();
+    let listener = sync::DynListener::<&str>::from_listener(flag.listener());
 
     // Should not gain a new wrapper when converted again.
     assert_eq!(
         Arc::as_ptr(&listener),
-        Arc::as_ptr(&listener.clone().into_dyn_listener())
+        Arc::as_ptr(&FromListener::from_listener(listener.clone()))
     );
 
     // Should report alive (and not infinitely recurse).

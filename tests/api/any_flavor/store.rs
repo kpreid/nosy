@@ -1,7 +1,7 @@
 use core::mem;
 
 use super::flavor;
-use nosy::{IntoDynListener, Listener as _, StoreLock};
+use nosy::{FromListener, Listener as _, StoreLock};
 
 #[test]
 fn store_lock_debug() {
@@ -26,7 +26,7 @@ fn store_lock_listener_debug() {
 
 #[test]
 fn store_lock_meets_trait_bounds() {
-    let _: flavor::DynListener<i32> = StoreLock::new(vec![]).listener().into_dyn_listener();
+    let _ = flavor::DynListener::<i32>::from_listener(StoreLock::new(vec![]).listener());
 }
 
 #[test]

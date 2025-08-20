@@ -160,7 +160,7 @@ impl WakeFlag {
     pub fn listening<L>(wake_immediately: bool, source: L) -> Self
     where
         L: Listen,
-        WakeFlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
+        L::Listener: crate::FromListener<WakeFlagListener, L::Msg>,
     {
         let (flag, listener) = Self::new(wake_immediately);
         source.listen(listener);

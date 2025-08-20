@@ -7,7 +7,7 @@ use alloc::sync::Arc;
 
 #[cfg(doc)]
 use crate::Notifier;
-use crate::{IntoDynListener, Listen, Listener};
+use crate::{FromListener, IntoListener, Listen, Listener};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -120,8 +120,8 @@ pub trait Source: Listen<Msg = ()> + fmt::Debug {
     where
         Self: Sized,
         Self::Value: Source + Clone,
-        flatten::OuterListener<Self>: IntoDynListener<(), Self::Listener>,
-        flatten::InnerListener<Self>: IntoDynListener<(), <Self::Value as Listen>::Listener>,
+        Self::Listener: FromListener<flatten::OuterListener<Self>, ()>,
+        <Self::Value as Listen>::Listener: FromListener<flatten::InnerListener<Self>, ()>,
     {
         Flatten::new(self)
     }
@@ -191,7 +191,7 @@ impl<T, L: Listener<()>> Listen for Constant<T, L> {
     type Msg = ();
     type Listener = L;
 
-    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, _: L2) {
+    fn listen<L2: IntoListener<L, ()>>(&self, _: L2) {
         // do nothing, skipping the boxing that would happen if we only implemented listen_raw()
     }
     fn listen_raw(&self, _: Self::Listener) {}

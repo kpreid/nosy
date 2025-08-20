@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use core::{fmt, mem};
 
 use crate::maybe_sync::{Mutex, MutexGuard};
-use crate::{Listen, Listener, Notifier, Source};
+use crate::{IntoListener, Listen, Listener, Notifier, Source};
 
 #[cfg(doc)]
 use crate::{sync, unsync};
@@ -169,8 +169,8 @@ impl<T, L: Listener<()>> Listen for CellSource<T, L> {
         self.notifier.listen_raw(listener);
     }
 
-    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
-        self.notifier.listen(listener);
+    fn listen<L2: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L2) {
+        self.notifier.listen(listener)
     }
 }
 impl<T, L: Listener<()>> Listen for Cell<T, L> {
@@ -181,8 +181,8 @@ impl<T, L: Listener<()>> Listen for Cell<T, L> {
         self.shared.listen_raw(listener);
     }
 
-    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
-        self.shared.listen(listener);
+    fn listen<L2: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L2) {
+        self.shared.listen(listener)
     }
 }
 impl<T, L: Listener<()>> Listen for CellWithLocal<T, L> {
@@ -193,8 +193,8 @@ impl<T, L: Listener<()>> Listen for CellWithLocal<T, L> {
         self.cell.listen_raw(listener);
     }
 
-    fn listen<L2: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L2) {
-        self.cell.listen(listener);
+    fn listen<L2: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L2) {
+        self.cell.listen(listener)
     }
 }
 
