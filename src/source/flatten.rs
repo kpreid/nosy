@@ -3,9 +3,10 @@ use alloc::sync::Weak;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
-use crate::GateListener;
-use crate::NotifierForwarder;
-use crate::{maybe_sync, Gate, IntoDynListener, Listen, Listener, Notifier, Source};
+use crate::{
+    maybe_sync, FromListener, Gate, GateListener, IntoListener, Listen, Listener, Notifier,
+    NotifierForwarder, Source,
+};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -61,8 +62,8 @@ struct State<S> {
 impl<S> Flatten<S>
 where
     S: Source<Value: Source + Clone>,
-    OuterListener<S>: IntoDynListener<(), S::Listener>,
-    InnerListener<S>: IntoDynListener<(), <S::Value as Listen>::Listener>,
+    S::Listener: FromListener<OuterListener<S>, ()>,
+    <S::Value as Listen>::Listener: FromListener<InnerListener<S>, ()>,
 {
     /// Constructs a source whose value is `source_of_source.get().get()`.
     pub fn new(source_of_source: S) -> Self {
@@ -137,10 +138,7 @@ where
         self.0.notifier.listen_raw(listener)
     }
 
-    fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
-    where
-        Self: Sized,
-    {
+    fn listen<L: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L) {
         self.0.notifier.listen(listener)
     }
 }
@@ -148,8 +146,8 @@ where
 impl<S> Source for Flatten<S>
 where
     S: Source<Value: Source + Clone>,
-    OuterListener<S>: IntoDynListener<(), S::Listener>,
-    InnerListener<S>: IntoDynListener<(), <S::Value as Listen>::Listener>,
+    S::Listener: FromListener<OuterListener<S>, ()>,
+    <S::Value as Listen>::Listener: FromListener<InnerListener<S>, ()>,
 {
     type Value = <S::Value as Source>::Value;
 

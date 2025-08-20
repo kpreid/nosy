@@ -173,7 +173,7 @@ mod source;
 pub use source::{Constant, Flatten, Map, Source};
 
 mod listener;
-pub use listener::{IntoDynListener, Listen, Listener};
+pub use listener::{FromListener, IntoListener, Listen, Listener};
 
 mod simple_listeners;
 pub use simple_listeners::{Flag, FlagListener, Log, LogListener, NullListener};

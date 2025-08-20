@@ -11,7 +11,7 @@ use crate::{Notifier, Store, StoreLock};
 /// recipient has been dropped).
 ///
 /// Listeners are typically used in trait object form, which may be created via the
-/// [`IntoDynListener`] trait in addition to the usual coercions;
+/// [`FromListener`] trait in addition to the usual coercions;
 /// this is done automatically by [`Listen`], but calling it earlier may be useful to minimize
 /// the number of separately allocated clones of the listener when the same listener is
 /// to be registered with multiple message sources.
@@ -81,7 +81,7 @@ pub trait Listener<M>: fmt::Debug {
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
     ///
-    /// **You should not need to override or call this method;** use [`IntoDynListener`] instead.
+    /// **You should not need to override or call this method;** use [`FromListener`] instead.
     #[doc(hidden)]
     fn into_dyn_listener_unsync(self) -> crate::unsync::DynListener<M>
     where
@@ -97,7 +97,7 @@ pub trait Listener<M>: fmt::Debug {
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
     ///
-    /// **You should not need to override or call this method;** use [`IntoDynListener`] instead.
+    /// **You should not need to override or call this method;** use [`FromListener`] instead.
     #[doc(hidden)]
     fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M>
     where
@@ -179,35 +179,58 @@ pub trait Listener<M>: fmt::Debug {
 
 /// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
 ///
-/// This trait is a helper for [`Listen`] and generally does not need to be implemented,
+/// This trait is typically used via calling [`Listen::listen()`], or an [`IntoListener`] bound
+/// on a function’s parameter.
+/// It generally does not need to be implemented,
 /// unless you are using a custom type for your type-erased listeners that is neither
 /// [`sync::DynListener`] nor [`unsync::DynListener`].
 ///
 /// # Generic parameters
 ///
-/// * `Self` is the listener type being converted from.
+/// * `Self` is the listener type being converted to.
+/// * `L` is the listener type being converted from.
 /// * `M` is the type of message accepted by the listener.
-/// * `L` is the listener type being converted to.
-pub trait IntoDynListener<M, L: Listener<M>>: Listener<M> {
-    /// Wrap this [`Listener`] into a type-erased form of type `L`.
-    fn into_dyn_listener(self) -> L;
+///
+/// # Why not `From`?
+///
+/// The reason we define this trait instead of using the standard [`From`] trait is that [coherence]
+/// would prohibit providing the needed blanket implementations — we cannot write
+///
+/// ```ignore
+/// impl<L, M> From<L> for nosy::unsync::DynListener<M>
+/// where
+///     L: nosy::Listener<M>,
+/// # {
+/// #     fn from(value: L) -> Self { todo!();}
+/// # }
+/// ```
+///
+/// because `L` is an uncovered type parameter and [`DynListener`][crate::unsync::DynListener]
+/// is not a local type, and
+/// even if that were not the case, this implementation would conflict with
+/// the blanket implementation `impl<T> From<T> for T`.
+///
+/// [coherence]: https://doc.rust-lang.org/reference/items/implementations.html#trait-implementation-coherence
+pub trait FromListener<L: Listener<M>, M>: Listener<M> {
+    /// Convert the given [`Listener`] into `Self`.
+    fn from_listener(listener: L) -> Self;
 }
 
-impl<L, M> IntoDynListener<M, sync::DynListener<M>> for L
+impl<L, M> FromListener<L, M> for sync::DynListener<M>
 where
     L: Listener<M> + Send + Sync + 'static,
 {
-    fn into_dyn_listener(self) -> sync::DynListener<M> {
-        self.into_dyn_listener_sync()
+    fn from_listener(listener: L) -> sync::DynListener<M> {
+        listener.into_dyn_listener_sync()
     }
 }
 
-impl<L, M> IntoDynListener<M, unsync::DynListener<M>> for L
+impl<L, M> FromListener<L, M> for unsync::DynListener<M>
 where
     L: Listener<M> + 'static,
 {
-    fn into_dyn_listener(self) -> unsync::DynListener<M> {
-        self.into_dyn_listener_unsync()
+    fn from_listener(listener: L) -> unsync::DynListener<M> {
+        listener.into_dyn_listener_unsync()
     }
 }
 
@@ -235,6 +258,74 @@ impl<M> Listener<M> for sync::DynListener<M> {
     fn into_dyn_listener_sync(self) -> sync::DynListener<M> {
         self
     }
+}
+
+/// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
+///
+/// This trait is equivalent to [`FromListener`] but with the source and destination swapped.
+/// It allows you to write concise bounds like
+/// `fn my_listen(listener: impl IntoListener<DynListener<M>, M>)`.
+/// Additionally, `IntoListener` bounds are [eligible for elaboration] whereas the corresponding
+/// [`FromListener`] bound would not be, and thus would require an additional `L: Listener<M>`
+/// bound on every function or impl.
+///
+/// This trait may not be implemented. Implement [`FromListener`] instead.
+///
+/// # Generic parameters
+///
+/// * `Self` is the listener type being converted from.
+/// * `L` is the listener type being converted to.
+/// * `M` is the type of message accepted by the listener.
+///
+/// # Example
+///
+/// [`IntoListener`] is used when writing functions that take listeners as parameters,
+/// similar to [`Listen::listen()`]:
+///
+/// ```
+/// use nosy::{Listen, unsync::DynListener};
+///
+/// struct MyCell {
+///     value: core::cell::Cell<usize>,
+///     notifier: nosy::Notifier<(), DynListener<()>>,
+/// }
+///
+/// impl MyCell {
+///     pub fn get_and_listen(
+///         &self,
+///         listener: impl nosy::IntoListener<DynListener<()>, ()>,
+///     ) -> usize {
+///         self.notifier.listen(listener);
+///         self.value.get()
+///     }
+/// }
+/// ```
+///
+/// [eligible for elaboration]: https://github.com/rust-lang/rust/issues/20671
+pub trait IntoListener<L, M>: Sized + Listener<M> {
+    /// Wrap this [`Listener`] into a type-erased form of type `L`.
+    fn into_listener(self) -> L;
+
+    #[doc(hidden)]
+    fn _you_may_not_implement_this_trait(_: into_listener_is_sealed::Sealed);
+}
+
+impl<LIn, LOut, M> IntoListener<LOut, M> for LIn
+where
+    LIn: Listener<M>,
+    LOut: Listener<M> + FromListener<Self, M>,
+{
+    fn into_listener(self) -> LOut {
+        LOut::from_listener(self)
+    }
+
+    #[doc(hidden)]
+    fn _you_may_not_implement_this_trait(_: into_listener_is_sealed::Sealed) {}
+}
+
+mod into_listener_is_sealed {
+    #[allow(unnameable_types, missing_debug_implementations)]
+    pub struct Sealed;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -284,20 +375,21 @@ pub trait Listen {
     /// By default, this method is equivalent to
     ///
     /// ```ignore
-    /// self.listen_raw(listener.into_dyn_listener())
+    /// self.listen_raw(listener.into_listener())
     /// ```
-    fn listen<L: IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
+    fn listen<L>(&self, listener: L)
     where
+        L: IntoListener<Self::Listener, Self::Msg>,
         Self: Sized,
     {
-        self.listen_raw(listener.into_dyn_listener())
+        self.listen_raw(listener.into_listener())
     }
 
     /// Subscribe the given [`Listener`] to this source of messages.
     ///
     /// Compared to `listen()`, `listen_raw()` requires that the given listener be of exactly the
     /// type that it will be stored as, rather than automatically wrapping it via the
-    /// [`IntoDynListener`]trait. In exchange, it can be used when [`IntoDynListener`] is not
+    /// [`FromListener`] trait. In exchange, it can be used when [`FromListener`] is not
     /// implemented, or with `dyn Listen`.
     /// Also, it is the method which implementors of `Listen` must implement.
     ///

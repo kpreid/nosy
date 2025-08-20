@@ -209,7 +209,7 @@ impl Flag {
     pub fn listening<L>(value: bool, source: L) -> Self
     where
         L: Listen,
-        FlagListener: crate::IntoDynListener<L::Msg, L::Listener>,
+        L::Listener: crate::FromListener<FlagListener, L::Msg>,
     {
         let new_self = Self::new(value);
         source.listen(new_self.listener());

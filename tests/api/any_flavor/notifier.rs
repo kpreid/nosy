@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use super::flavor::{Notifier, RawNotifier};
 use nosy::sync::DynListener;
-use nosy::{IntoDynListener, Listen as _, Listener, Log};
+use nosy::{FromListener, Listen as _, Listener, Log};
 
 #[test]
 fn basics_and_debug() {
@@ -133,7 +133,9 @@ fn drops_listeners_even_with_no_messages(listen: &mut dyn FnMut(DynListener<()>)
     }
 
     for _ in 0..100 {
-        listen(MomentaryListener::new(counters.clone()).into_dyn_listener());
+        listen(DynListener::from_listener(MomentaryListener::new(
+            counters.clone(),
+        )));
     }
 
     // The exact number here will depend on the details of `Notifier` and `Vec`;

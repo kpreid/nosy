@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::{Listen, Source};
+use crate::{IntoListener, Listen, Source};
 
 /// A [`Source`] whose values are produced by applying a function to another source.
 ///
@@ -21,10 +21,7 @@ impl<S: Source, F> Listen for Map<S, F> {
         self.source.listen_raw(listener)
     }
 
-    fn listen<L: crate::IntoDynListener<Self::Msg, Self::Listener>>(&self, listener: L)
-    where
-        Self: Sized,
-    {
+    fn listen<L: IntoListener<Self::Listener, Self::Msg>>(&self, listener: L) {
         self.source.listen(listener)
     }
 }
