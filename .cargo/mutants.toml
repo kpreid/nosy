@@ -1,0 +1,2 @@
+# Enable all features to ensure all tests run
+all_features = true

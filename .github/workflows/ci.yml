@@ -149,9 +149,7 @@ jobs:
           # Job's likely to fail and yet have useful cache material.
           cache-on-failure: true
 
-      # Not locked so that we can have a newer `syn` than is in the lockfile, for compatibility
-      # with use<> bounds. Add `--locked` back when there is a new release.
-      - run: cargo install cargo-mutants@24.11.2
+      - run: cargo install cargo-mutants@25.3.1 --locked
 
       - name: Relative diff
         run: |
@@ -159,7 +157,7 @@ jobs:
           git diff origin/${{ github.base_ref }}.. | tee git.diff
       
       - name: Mutants
-        run: cargo mutants --in-diff git.diff -- --all-features
+        run: cargo mutants --in-diff git.diff
 
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
