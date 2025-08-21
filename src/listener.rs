@@ -11,7 +11,7 @@ use crate::{FlagListener, Notifier, Store, StoreLock};
 /// recipient has been dropped).
 ///
 /// Listeners are typically used in trait object form, which may be created via the
-/// [`FromListener`] trait in addition to the usual coercions;
+/// [`IntoListener`] trait in addition to the usual coercions;
 /// this is done automatically by [`Listen`], but calling it earlier may be useful to minimize
 /// the number of separately allocated clones of the listener when the same listener is
 /// to be registered with multiple message sources.
@@ -81,7 +81,7 @@ pub trait Listener<M>: fmt::Debug {
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
     ///
-    /// **You should not need to override or call this method;** use [`FromListener`] instead.
+    /// **You should not need to override or call this method;** use [`IntoListener`] instead.
     #[doc(hidden)]
     fn into_dyn_listener_unsync(self) -> crate::unsync::DynListener<M>
     where
@@ -97,7 +97,7 @@ pub trait Listener<M>: fmt::Debug {
     /// The purpose of this method over simply calling [`Arc::new()`] is that it will
     /// avoid double-wrapping of a listener that's already in [`Arc`].
     ///
-    /// **You should not need to override or call this method;** use [`FromListener`] instead.
+    /// **You should not need to override or call this method;** use [`IntoListener`] instead.
     #[doc(hidden)]
     fn into_dyn_listener_sync(self) -> crate::sync::DynListener<M>
     where
@@ -445,7 +445,7 @@ pub trait Listen {
     ///
     /// Compared to `listen()`, `listen_raw()` requires that the given listener be of exactly the
     /// type that it will be stored as, rather than automatically wrapping it via the
-    /// [`FromListener`] trait. In exchange, it can be used when [`FromListener`] is not
+    /// [`IntoListener`] trait. In exchange, it can be used when [`IntoListener`] is not
     /// implemented, or with `dyn Listen`.
     /// Also, it is the method which implementors of `Listen` must implement.
     ///
