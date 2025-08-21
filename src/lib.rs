@@ -160,6 +160,9 @@ extern crate std;
 mod cell;
 pub use cell::{Cell, CellSource, CellWithLocal};
 
+mod convert;
+pub use convert::{FromListener, IntoListener};
+
 mod filter;
 pub use filter::Filter;
 
@@ -173,7 +176,7 @@ mod source;
 pub use source::{Constant, Flatten, Map, Source};
 
 mod listener;
-pub use listener::{FromListener, IntoListener, Listen, Listener};
+pub use listener::{Listen, Listener};
 
 mod simple_listeners;
 pub use simple_listeners::{Flag, FlagListener, Log, LogListener, NullListener};
