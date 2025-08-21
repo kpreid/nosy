@@ -7,11 +7,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<&str> = args.iter().map(|s| &**s).collect();
     match *args {
         ["test"] => {
-            cargo(sh).args(["test", "--no-default-features"]).run()?;
-            cargo(sh).args(["test", "--features=async"]).run()?;
-            cargo(sh).args(["test", "--features=std"]).run()?;
-            cargo(sh).args(["test", "--features=sync"]).run()?;
             cargo(sh).args(["test", "--all-features"]).run()?;
+
+            // Run tests with fewer features quietly to reduce spam
+            cargo(sh)
+                .args(["--quiet", "test", "--no-default-features"])
+                .run()?;
+            cargo(sh)
+                .args(["--quiet", "test", "--features=async"])
+                .run()?;
+            cargo(sh)
+                .args(["--quiet", "test", "--features=std"])
+                .run()?;
+            cargo(sh)
+                .args(["--quiet", "test", "--features=sync"])
+                .run()?;
+
             cargo(sh)
                 .args(["clippy", "--all-features", "--all-targets"])
                 .run()?;
