@@ -571,6 +571,13 @@ impl<M, L> fmt::Debug for NotifierForwarder<M, L> {
     }
 }
 
+impl<M, L> fmt::Pointer for NotifierForwarder<M, L> {
+    /// Produces the address of the `Notifier` this forwards to.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.as_ptr().fmt(f)
+    }
+}
+
 impl<M, L: Listener<M>> Listener<M> for NotifierForwarder<M, L> {
     fn receive(&self, messages: &[M]) -> bool {
         if let Some(notifier) = self.0.upgrade() {

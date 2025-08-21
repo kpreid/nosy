@@ -145,6 +145,21 @@ impl<T: ?Sized> fmt::Debug for StoreLockListener<T> {
     }
 }
 
+impl<T: ?Sized> fmt::Pointer for StoreLock<T> {
+    /// Produces an address which is the same for this [`StoreLock`] and its associated
+    /// [`StoreLockListener`]s.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        MaRc::as_ptr(&self.0).fmt(f)
+    }
+}
+impl<T: ?Sized> fmt::Pointer for StoreLockListener<T> {
+    /// Produces an address which is the same for this [`StoreLockListener`] and its associated
+    /// [`StoreLock`].
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.as_ptr().fmt(f)
+    }
+}
+
 impl<T> StoreLock<T> {
     /// Construct a new [`StoreLock`] with the given initial state.
     pub fn new(initial_state: T) -> Self {
