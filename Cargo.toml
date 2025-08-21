@@ -16,6 +16,9 @@ include = ["/src", "/tests", "/CHANGELOG.md", "/README.md", "/LICENSE-APACHE", "
 [package.metadata.docs.rs]
 all-features = true
 
+[lib]
+test = false # All tests are currently in tests/api/ instead
+
 [features]
 default = []
 # Enables trait implementations on `std` types, rather than only `alloc` types.
