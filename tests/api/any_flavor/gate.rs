@@ -22,3 +22,16 @@ fn gate() {
 
     assert_eq!(notifier.count(), 0);
 }
+
+#[test]
+fn pointer_fmt_eq() {
+    let log = Log::new();
+    let original_listener = log.listener();
+    let (gate, gate_listener): (nosy::Gate, nosy::GateListener<nosy::LogListener<i32>>) =
+        original_listener.clone().gate();
+    assert_eq!(
+        format!("GateListener {{ gate: {gate:p}, target: {original_listener:p} }}"),
+        format!("{gate_listener:p}"),
+        "pointer formatting not equal as expected"
+    )
+}

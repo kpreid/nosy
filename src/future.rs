@@ -4,6 +4,7 @@
 //! Nothing in it depends on any particular async executor/runtime.
 
 use alloc::sync::{Arc, Weak};
+use core::fmt;
 use core::future::Future;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -91,14 +92,13 @@ use crate::{Listen, Listener};
 /// );
 /// # })
 /// ```
-#[derive(Debug)]
 pub struct WakeFlag {
     /// Shared state between the [`WakeFlag`] and [`WakeFlagListener`]s.
     shared: Arc<WakeFlagShared>,
 }
 
 /// [`WakeFlag`]’s accompanying listener implementation.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct WakeFlagListener {
     shared: Weak<WakeFlagShared>,
 
@@ -274,6 +274,39 @@ impl WakeFlagShared {
 // but that is already an almost certain consequence of unwinding when you
 // meant to do something else.
 impl core::panic::RefUnwindSafe for WakeFlagShared {}
+
+impl fmt::Debug for WakeFlag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("WakeFlag")
+            .field(&self.shared.notified.load(Ordering::Relaxed))
+            .finish()
+    }
+}
+
+impl fmt::Debug for WakeFlagListener {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { shared, _alive } = self;
+        let strong = shared.upgrade();
+
+        let mut ds = f.debug_struct("WakeFlagListener");
+        ds.field("alive", &strong.is_some());
+        if let Some(strong) = strong {
+            ds.field("value", &(strong.notified.load(Ordering::Relaxed)));
+        }
+        ds.finish()
+    }
+}
+
+impl fmt::Pointer for WakeFlag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Arc::as_ptr(&self.shared).fmt(f)
+    }
+}
+impl fmt::Pointer for WakeFlagListener {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.shared.as_ptr().fmt(f)
+    }
+}
 
 // -------------------------------------------------------------------------------------------------
 

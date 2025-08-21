@@ -104,3 +104,34 @@ fn wake_flag_stream() {
         vec!["sending", "sent", "received", "sending", "sent", "received"]
     );
 }
+
+#[test]
+fn wake_flag_debug() {
+    let (mut flag, listener) = nosy::future::WakeFlag::new(false);
+    assert_eq!(
+        format!("{flag:?} {listener:?}"),
+        "WakeFlag(false) WakeFlagListener { alive: true, value: false }"
+    );
+    listener.receive(&[123]);
+    assert_eq!(
+        format!("{flag:?} {listener:?}"),
+        "WakeFlag(true) WakeFlagListener { alive: true, value: true }"
+    );
+    futures::executor::block_on(flag.wait());
+    assert_eq!(
+        format!("{flag:?} {listener:?}"),
+        "WakeFlag(false) WakeFlagListener { alive: true, value: false }"
+    );
+    drop(flag);
+    assert_eq!(format!("{listener:?}"), "WakeFlagListener { alive: false }");
+}
+
+#[test]
+fn wake_flag_pointer_fmt_eq() {
+    let (flag, listener) = nosy::future::WakeFlag::new(false);
+    assert_eq!(
+        format!("{flag:p}"),
+        format!("{listener:p}"),
+        "pointer formatting not equal as expected"
+    )
+}

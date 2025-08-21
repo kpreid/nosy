@@ -37,6 +37,17 @@ fn cell_and_source_debug() {
 }
 
 #[test]
+fn pointer_fmt_eq() {
+    let cell = flavor::Cell::<Vec<&'static str>>::new(vec!["hi"]);
+    let source = cell.as_source();
+    assert_eq!(
+        format!("{cell:p}"),
+        format!("Cell {{ cell_address: {source:p} }}"),
+        "pointer formatting not matching as expected"
+    )
+}
+
+#[test]
 fn cell_usage() {
     let cell = flavor::Cell::<i32>::new(0i32);
 

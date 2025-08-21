@@ -14,7 +14,7 @@ use crate::Listener;
 #[derive(Clone, Default)]
 pub struct Gate {
     /// By owning this we keep its [`Weak`] peers alive, and thus the [`GateListener`] active.
-    _strong: Arc<()>,
+    strong: Arc<()>,
 }
 
 impl fmt::Debug for Gate {
@@ -28,7 +28,7 @@ impl Gate {
         let signaller = Arc::new(());
         let weak = Arc::downgrade(&signaller);
         (
-            Gate { _strong: signaller },
+            Gate { strong: signaller },
             GateListener {
                 weak,
                 target: listener,
@@ -61,5 +61,25 @@ where
         } else {
             false
         }
+    }
+}
+
+impl fmt::Pointer for Gate {
+    /// Produces an address which identifies this [`Gate`] and its associated [`GateListener`]s.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.strong.fmt(f)
+    }
+}
+
+impl<L: fmt::Pointer> fmt::Pointer for GateListener<L> {
+    /// Produces the addresses identifying the gate and the underlying listener.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { weak, target } = self;
+        write!(
+            f,
+            "GateListener {{ gate: {weak:p}, target: {target:p} }}",
+            weak = weak.as_ptr(),
+            target = *target, // deref the &L so we call its own fmt::Pointer and not `&`'s
+        )
     }
 }

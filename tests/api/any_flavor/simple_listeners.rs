@@ -63,6 +63,17 @@ fn log_debug() {
 }
 
 #[test]
+fn log_pointer_fmt_eq() {
+    let log: Log<i32> = Log::new();
+    let listener = log.listener();
+    assert_eq!(
+        format!("{log:p}"),
+        format!("{listener:p}"),
+        "pointer formatting not equal as expected"
+    )
+}
+
+#[test]
 fn flag_alive() {
     let notifier: Notifier<()> = Notifier::new();
     let flag = Flag::new(false);
@@ -104,4 +115,15 @@ fn flag_debug() {
     );
     drop(flag);
     assert_eq!(format!("{listener:?}"), "FlagListener { alive: false }");
+}
+
+#[test]
+fn flag_pointer_fmt_eq() {
+    let flag = Flag::new(false);
+    let listener = flag.listener();
+    assert_eq!(
+        format!("{flag:p}"),
+        format!("{listener:p}"),
+        "pointer formatting not equal as expected"
+    )
 }

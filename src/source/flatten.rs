@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use alloc::sync::Weak;
+use core::fmt;
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
@@ -191,5 +192,16 @@ pub struct InnerListener<S: Source<Value: Source>>(
 impl<S: Source<Value: Source>> Listener<()> for InnerListener<S> {
     fn receive(&self, messages: &[()]) -> bool {
         self.0.receive(messages)
+    }
+}
+
+impl<S: Source<Value: Source>> fmt::Pointer for OuterListener<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.shared.as_ptr().fmt(f)
+    }
+}
+impl<S: Source<Value: Source>> fmt::Pointer for InnerListener<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

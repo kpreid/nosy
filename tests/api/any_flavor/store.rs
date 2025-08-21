@@ -25,6 +25,17 @@ fn store_lock_listener_debug() {
 }
 
 #[test]
+fn pointer_fmt_eq() {
+    let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
+    let listener = sl.listener();
+    assert_eq!(
+        format!("{sl:p}"),
+        format!("{listener:p}"),
+        "pointer formatting not equal as expected"
+    )
+}
+
+#[test]
 fn store_lock_meets_trait_bounds() {
     let _ = flavor::DynListener::<i32>::from_listener(StoreLock::new(vec![]).listener());
 }

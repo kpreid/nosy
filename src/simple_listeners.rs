@@ -102,6 +102,19 @@ impl<M> fmt::Debug for LogListener<M> {
     }
 }
 
+impl<M> fmt::Pointer for Log<M> {
+    /// Produces an address which is the same for this [`Log`] and its associated [`LogListener`]s.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        StoreLock::fmt(&self.0, f)
+    }
+}
+impl<M> fmt::Pointer for LogListener<M> {
+    /// Produces an address which is the same for this [`LogListener`] and its associated [`Log`].
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        StoreLockListener::fmt(&self.0, f)
+    }
+}
+
 impl<M: Clone + Send + Sync> Listener<M> for LogListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         self.0.receive(messages)
@@ -170,6 +183,20 @@ impl fmt::Debug for FlagListener {
             ds.field("value", &(strong.load(Ordering::Relaxed)));
         }
         ds.finish()
+    }
+}
+
+impl fmt::Pointer for Flag {
+    /// Produces an address which is the same for this [`Flag`] and its associated
+    /// [`FlagListener`]s.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Arc::as_ptr(&self.shared).fmt(f)
+    }
+}
+impl fmt::Pointer for FlagListener {
+    /// Produces an address which is the same for this [`FlagListener`] and its associated [`Flag`].
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.weak.as_ptr().fmt(f)
     }
 }
 

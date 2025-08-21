@@ -56,6 +56,13 @@ impl<F, T: fmt::Debug, const BATCH: usize> fmt::Debug for Filter<F, T, BATCH> {
     }
 }
 
+impl<F, T: fmt::Pointer, const BATCH: usize> fmt::Pointer for Filter<F, T, BATCH> {
+    /// Produces the same output as the listener this filter wraps.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        T::fmt(&self.target, f)
+    }
+}
+
 impl<MI, MO, F, T, const BATCH: usize> Listener<MI> for Filter<F, T, BATCH>
 where
     F: Fn(&MI) -> Option<MO> + Send + Sync,

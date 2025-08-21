@@ -58,6 +58,17 @@ fn forwarder_debug() {
 }
 
 #[test]
+fn forwarder_pointer_fmt_eq() {
+    let n: Arc<Notifier<u8>> = Arc::new(Notifier::new());
+    let nf = Notifier::forwarder(Arc::downgrade(&n));
+    assert_eq!(
+        format!("{n:p}"),
+        format!("{nf:p}"),
+        "pointer formatting not equal as expected"
+    )
+}
+
+#[test]
 fn close_drops_listeners() {
     #[derive(Debug)]
     struct DropDetector(Arc<()>);
