@@ -1,6 +1,8 @@
 #![allow(clippy::bool_assert_comparison, reason = "less legible")]
 #![allow(clippy::arc_with_non_send_sync)]
 
+#[cfg(feature = "async")]
+mod future;
 mod listener;
 mod static_properties;
 mod tools;

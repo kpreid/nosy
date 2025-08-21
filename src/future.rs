@@ -288,36 +288,3 @@ impl Stream for WakeFlag {
             .map(|alive| if alive { Some(()) } else { None })
     }
 }
-
-// -------------------------------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use core::pin::pin;
-    use futures::task::noop_waker_ref;
-
-    /// Basic functionality test using only `poll()` and ignoring wakers.
-    #[test]
-    fn wake_flag_polling() {
-        let ctx = &mut Context::from_waker(noop_waker_ref());
-        let (mut flag, listener) = WakeFlag::new(true);
-
-        // First poll succeeds immediately because we initialized with true.
-        assert_eq!(pin!(flag.wait()).as_mut().poll(ctx), Poll::Ready(true));
-
-        {
-            // Second poll of a new future returns Pending.
-            let mut future = pin!(flag.wait());
-            assert_eq!(future.as_mut().poll(ctx), Poll::Pending);
-
-            // When a message is received, then polling will return Ready(true).
-            listener.receive(&[()]);
-            assert_eq!(future.as_mut().poll(ctx), Poll::Ready(true));
-        }
-
-        // When the listener is dropped, then polling will return Ready(false).
-        drop(listener);
-        assert_eq!(pin!(flag.wait()).as_mut().poll(ctx), Poll::Ready(false));
-    }
-}
