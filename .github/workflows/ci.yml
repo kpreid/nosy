@@ -86,7 +86,7 @@ jobs:
 
     - name: Lint
       run: |
-        cargo clippy --timings
+        cargo clippy --timings --all-features --all-targets
 
     - name: Document (default features)
       run: |
