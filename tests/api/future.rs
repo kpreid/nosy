@@ -4,7 +4,12 @@ use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::sync::Arc;
 use std::task::{self, Poll};
 
+use futures::task::SpawnExt as _;
+use futures::StreamExt;
+
 use nosy::Listener as _;
+
+use crate::tools::{run_task_without_waiting, yield_now};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -64,4 +69,39 @@ fn wake_flag_polling() {
         assert_eq!(future.as_mut().poll(ctx), Poll::Ready(false));
         assert_eq!(wake_detector.take(), false);
     }
+}
+
+/// Test `impl WakeFlag for Stream`.
+#[test]
+fn wake_flag_stream() {
+    // just using this as interior mutable Vec, not something under test
+    let event_log = nosy::Log::new();
+    let log_listener = event_log.listener();
+
+    run_task_without_waiting(async move {
+        let (mut flag, listener) = nosy::future::WakeFlag::new(false);
+
+        futures::join!(
+            async {
+                while let Some(()) = flag.next().await {
+                    log_listener.receive(&["received"]);
+                }
+            },
+            async {
+                for _ in 0..2 {
+                    log_listener.receive(&["sending"]);
+                    listener.receive(&[()]);
+                    log_listener.receive(&["sent"]);
+                    yield_now().await;
+                }
+                drop(listener);
+            }
+        );
+    });
+
+    // Check the expected events occurred
+    assert_eq!(
+        event_log.drain(),
+        vec!["sending", "sent", "received", "sending", "sent", "received"]
+    );
 }
