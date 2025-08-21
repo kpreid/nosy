@@ -178,7 +178,16 @@ impl<T: ?Sized> StoreLock<T> {
     ///
     /// This is not more powerful than [`lock()`](Self::lock),
     /// but it offers the guarantee that it will hold the lock for as little time as possible.
-    /// It is equivalent to `mem::replace(&mut *self.0.lock(), T::default())`.
+    /// It is equivalent to:
+    ///
+    /// ```no_run
+    /// # use core::mem;
+    /// # trait Ext<T> { fn take(&self) -> T; }
+    /// # impl<T: Default> Ext<T> for nosy::StoreLock<T> { fn take(&self) -> T {
+    /// let replacement = T::default();
+    /// mem::replace(&mut *self.lock(), replacement)
+    /// # } }
+    /// ```
     ///
     /// # Panics
     ///
