@@ -17,7 +17,6 @@ use crate::Listener;
 /// as rectangles, then one might define a `Store` owning an `Option<Rect>` that contains the union
 /// of all the rectangle messages, as an adequate constant-space approximation of the whole.
 ///
-///
 /// # Generic parameters
 ///
 /// * `M` is the type of message that can be received.
@@ -109,7 +108,7 @@ pub trait Store<M> {
 ///
 /// # Generic parameters
 ///
-/// * `T` is the type of the state.
+/// * `T` is the type of the state, which should implement [`Store`].
 
 #[derive(Default)]
 pub struct StoreLock<T: ?Sized>(MaRc<maybe_sync::Mutex<T>>);
