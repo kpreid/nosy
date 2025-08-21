@@ -4,8 +4,7 @@ use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 use std::sync::Arc;
 use std::task::{self, Poll};
 
-use futures::task::SpawnExt as _;
-use futures::StreamExt;
+use futures::StreamExt as _;
 
 use nosy::Listener as _;
 
