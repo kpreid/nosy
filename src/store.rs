@@ -1,7 +1,7 @@
 use core::fmt;
 
-use crate::maybe_sync::{self, MaRc, MaWeak};
 use crate::Listener;
+use crate::maybe_sync::{self, MaRc, MaWeak};
 
 /// A data structure which records received messages for later processing.
 ///

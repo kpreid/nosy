@@ -11,7 +11,7 @@ use crate::maybe_sync::RwLock;
 use crate::{IntoListener, Listen, Listener};
 
 #[cfg(doc)]
-use crate::{sync, FromListener, Source};
+use crate::{FromListener, Source, sync};
 
 // -------------------------------------------------------------------------------------------------
 
