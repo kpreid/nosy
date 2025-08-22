@@ -78,9 +78,12 @@
 //!   Makes use of [`std::sync`] to add [`Sync`] functionality for delivering messages across
 //!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
-//!   It is possible to use a subset of `nosy`’s functionality as `Send + Sync` without enabling
-//!   this feature and without depending on `std`.
-//!   In particular, you may wish to use [`sync::RawNotifier`].
+//!   It is possible to use a subset of `nosy`’s functionality as <code>[Send] + [Sync]</code>
+//!   without enabling this feature and without depending on `std`.
+//!   In particular, you may wish to use [`sync::RawNotifier`], and the [`Flag`] and
+#![cfg_attr(feature = "async", doc = "   [`future::WakeFlag`]")]
+#![cfg_attr(not(feature = "async"), doc = "   `future::WakeFlag`")]
+//!   listeners are always `Send + Sync`.
 //!
 //! # Limitations
 //!
@@ -93,16 +96,18 @@
 //!   [`unsync`] styles of usage (e.g. [`Cell::as_source()`]’s return type does not vary).
 //!
 //! * Currently, almost all [`Listener`] invocations end up passing through double indirection.
-//!   This is because each [`Listener`] in a [`Notifier`] is stored as an `Arc<dyn Listener>`,
-//!   and most listeners then contain a weak reference to their actual target.
+//!   This is because by default, each [`Listener`] in a [`Notifier`] is stored as an
+//!   `Arc<dyn Listener>`, and most listeners then contain a weak reference to their actual target.
 //!   This could be fixed with “inline box” storage of listeners whose data size is small,
-//!   but that is not currently done.
+//!   but that is not provided as default functionality.
 //!
 //!   In specific applications, this can be avoided by creating [`Notifier`]s which store a single
-//!   non-`dyn` listener type or enum of listener types.
+//!   non-`dyn` listener type or enum of listener types. See [`FromListener`] for more information.
 //!
 //! * There is not yet any support for bringing your own `Mutex` type to enable
-//!   <code>[Send] + [Sync]</code> without [`std`].
+//!   [`Notifier`], [`StoreLock`], and [`Cell`] to be <code>[Send] + [Sync]</code> without [`std`].
+//!   If you need these features, you must use [`RawNotifier`] and implement the other components
+//!   yourself.
 //!
 #![cfg_attr(not(feature = "std"), doc = " [`std`]: https://doc.rust-lang.org/std/")]
 #![cfg_attr(
