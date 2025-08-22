@@ -150,6 +150,10 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     }
 
     /// Deliver a message to all [`Listener`]s.
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Notifier::close()`] was previously called.
     pub fn notify(&self, message: &M) {
         self.notify_many(core::slice::from_ref(message))
     }
