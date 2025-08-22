@@ -32,6 +32,60 @@ use crate::{FromListener, Source, sync};
 /// * `L` is the type of [`Listener`] accepted,
 ///   usually a trait object type such as [`sync::DynListener`],
 ///   or something else which implements [`FromListener`] (though this is not mandatory).
+///
+/// # Example
+///
+/// You may use a [`Notifier`] to construct a data structure which reports when specific elements of
+/// it have changed, allowing clients to stay in sync with those changes.
+///
+/// ```
+/// use std::collections::{HashMap, hash_map::Entry};
+/// use std::hash::Hash;
+/// use nosy::Listen as _;
+///
+/// #[derive(Default)]
+/// struct NotifyingMap<K, V> {
+///     map: HashMap<K, V>,
+///     notifier: nosy::unsync::Notifier<K>,
+/// }
+///
+/// impl<K: Eq + Hash + Copy, V: PartialEq> NotifyingMap<K, V> {
+///     fn insert(&mut self, key: K, value: V) {
+///         match self.map.entry(key) {
+///             Entry::Occupied(mut oe) if *oe.get() == value => {
+///                 // Values are equal; don’t change or report a change.
+///                 return;
+///             }
+///             entry => {
+///                 entry.insert_entry(value);
+///             }   
+///         }
+///         self.notifier.notify(&key);
+///     }
+/// }
+///
+/// impl<K, V> nosy::Listen for NotifyingMap<K, V> {
+///     type Msg = K;
+///     type Listener = nosy::unsync::DynListener<K>;
+///     fn listen_raw(&self, listener: Self::Listener) {
+///         self.notifier.listen_raw(listener);
+///     }
+/// }
+///
+/// // Example/test of using the map
+/// {
+///     let log = nosy::Log::new();
+///     let mut map = NotifyingMap::default();
+///     map.listen(log.listener());
+///     
+///     map.insert(1, 2);
+///     map.insert(3, 4);
+///     map.insert(1, 10);
+///     map.insert(3, 4);
+///     
+///     assert_eq!(log.drain(), vec![1, 3, 1]);
+/// }
+/// ```
 pub struct Notifier<M, L> {
     state: RwLock<State<M, L>>,
 }
