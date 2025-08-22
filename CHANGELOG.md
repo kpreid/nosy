@@ -2,9 +2,18 @@
 
 ## 0.2.0 (Unreleased)
 
+### Added
+
+- New trait implementations allow creating a `Notifier` for a single listener type only, like `nosy::Listener<nosy::Flag, ()>`. Such notifiers can be more efficient by avoiding dynamic dispatch and indirection.
+- All provided listener and destination types now implement `fmt::Pointer`.
+  This can be used like `eprintln!("{listener:p}")` to identify which shared state a listener is updating.
+
 ### Changed
 
 - The minimum supported Rust version is now 1.85.
+- The trait `IntoDynListener` has been split into two traits, `FromListener`, and `IntoListener`.
+  `FromListener` newly allows blanket implementations for converting to types not defined in `nosy` itself, i.e. `impl<L, M> FromListener<L, M> for MyPointer<dyn MyListener>`.
+  `IntoListener` is a sealed trait implemented for all `FromListener`, which is more convenient to use when accepting a listener than `FromListener` is.
 
 ## 0.1.1 (2025-06-12)
 
