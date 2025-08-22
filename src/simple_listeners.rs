@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{Listen, Listener, StoreLock, StoreLockListener};
+use crate::{FromListener, Listen, Listener, StoreLock, StoreLockListener};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -17,6 +17,13 @@ pub struct NullListener;
 impl<M> Listener<M> for NullListener {
     fn receive(&self, _messages: &[M]) -> bool {
         false
+    }
+}
+
+impl<M> crate::FromListener<NullListener, M> for NullListener {
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: NullListener) -> Self {
+        listener
     }
 }
 
@@ -118,6 +125,13 @@ impl<M> fmt::Pointer for LogListener<M> {
 impl<M: Clone + Send + Sync> Listener<M> for LogListener<M> {
     fn receive(&self, messages: &[M]) -> bool {
         self.0.receive(messages)
+    }
+}
+
+impl<M: Clone + Send + Sync> crate::FromListener<LogListener<M>, M> for LogListener<M> {
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: LogListener<M>) -> Self {
+        listener
     }
 }
 
@@ -282,6 +296,7 @@ impl Flag {
         self.shared.store(true, Self::SET_ORDERING);
     }
 }
+
 impl<M> Listener<M> for FlagListener {
     fn receive(&self, messages: &[M]) -> bool {
         if let Some(cell) = self.weak.upgrade() {
@@ -292,5 +307,12 @@ impl<M> Listener<M> for FlagListener {
         } else {
             false
         }
+    }
+}
+
+impl<M> FromListener<FlagListener, M> for FlagListener {
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: FlagListener) -> Self {
+        listener
     }
 }

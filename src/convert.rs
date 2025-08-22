@@ -3,25 +3,41 @@
 use crate::{sync, unsync, Listener};
 
 #[cfg(doc)]
-use crate::Listen;
+use crate::{Listen, Notifier};
 
 // -------------------------------------------------------------------------------------------------
 // Traits
 
 #[cfg_attr(not(feature = "async"), allow(rustdoc::broken_intra_doc_links))]
-/// Conversion from a concrete listener type to (normally) some flavor of boxed trait object.
+/// Conversion from a specific listener type to a more general listener type,
+/// such as a trait object.
 ///
 /// This trait is typically used via calling [`Listen::listen()`], or an [`IntoListener`] bound
-/// on a function’s parameter.
-/// It generally does not need to be implemented,
-/// unless you are using a custom type for your type-erased listeners that is neither
-/// [`sync::DynListener`] nor [`unsync::DynListener`].
+/// on a function’s parameter, to convert listeners of the provided type into a more common type
+/// that can be stored in a [`Notifier`]’s listener set.
 ///
 /// # Generic parameters
 ///
 /// * `Self` is the listener type being converted to.
 /// * `L` is the listener type being converted from.
 /// * `M` is the type of message accepted by the listener.
+///
+/// # When to implement `FromListener`
+///
+/// There are two kinds of implementations of `FromListener`:
+///
+/// * Conversion to trait objects, like [`sync::DynListener`] and [`unsync::DynListener`], or enums.
+///   You would write such an implementation if you are using a custom type for your type-erased
+///   listeners (e.g. to add more required traits to allow more inspection of the listeners).
+///
+/// * Reflexive implementations, allowing the use of a [`Notifier`] that accepts only one type of
+///   listener and does no dynamic dispatch.
+///   You may write such an implementation, `impl FromListener<MyListener, MyMsg> for MyListener`,
+///   whenever you implement `Listener`.
+///
+///   Unfortunately, we cannot provide a blanket implementation of this type,
+///   `impl<L: Listener<M>, M> FromListener<L, M> for L`,
+///   because it would conflict with the other kind of implementation.
 ///
 /// # Example implementation
 ///

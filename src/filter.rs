@@ -105,3 +105,15 @@ where
         }
     }
 }
+
+impl<MI, MO, F, T: Listener<MO>, const BATCH: usize> crate::FromListener<Filter<F, T, BATCH>, MI>
+    for Filter<F, T, BATCH>
+where
+    F: Fn(&MI) -> Option<MO> + Send + Sync,
+    T: Listener<MO>,
+{
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: Filter<F, T, BATCH>) -> Self {
+        listener
+    }
+}

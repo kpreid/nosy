@@ -11,7 +11,7 @@ use crate::maybe_sync::RwLock;
 use crate::{IntoListener, Listen, Listener};
 
 #[cfg(doc)]
-use crate::{sync, Source};
+use crate::{sync, FromListener, Source};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -30,7 +30,8 @@ use crate::{sync, Source};
 ///
 /// * `M` is the type of the messages to be broadcast.
 /// * `L` is the type of [`Listener`] accepted,
-///   usually a trait object type such as [`sync::DynListener`].
+///   usually a trait object type such as [`sync::DynListener`],
+///   or something else which implements [`FromListener`] (though this is not mandatory).
 pub struct Notifier<M, L> {
     state: RwLock<State<M, L>>,
 }
@@ -56,7 +57,8 @@ enum State<M, L> {
 ///
 /// * `M` is the type of the messages to be broadcast.
 /// * `L` is the type of [`Listener`] accepted,
-///   usually a trait object type such as [`sync::DynListener`].
+///   usually a trait object type such as [`sync::DynListener`],
+///   or something else which implements [`FromListener`] (though this is not mandatory).
 //---
 // Design note: `State` and `close()` is not a part of `RawNotifier` because they would require
 // `&mut self` to perform the closure, so there’s no benefit to making them internal.
@@ -586,6 +588,15 @@ impl<M, L: Listener<M>> Listener<M> for NotifierForwarder<M, L> {
         } else {
             false
         }
+    }
+}
+
+impl<L: Listener<M>, M> crate::FromListener<NotifierForwarder<M, L>, M>
+    for NotifierForwarder<M, L>
+{
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: NotifierForwarder<M, L>) -> Self {
+        listener
     }
 }
 
