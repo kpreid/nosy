@@ -64,6 +64,13 @@ where
     }
 }
 
+impl<L: Listener<M>, M> crate::FromListener<GateListener<L>, M> for GateListener<L> {
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: GateListener<L>) -> Self {
+        listener
+    }
+}
+
 impl fmt::Pointer for Gate {
     /// Produces an address which identifies this [`Gate`] and its associated [`GateListener`]s.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

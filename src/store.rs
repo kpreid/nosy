@@ -254,6 +254,15 @@ impl<M, T: ?Sized + Store<M> + Send> Listener<M> for StoreLockListener<T> {
     }
 }
 
+impl<T: ?Sized + Store<M> + Send, M> crate::FromListener<StoreLockListener<T>, M>
+    for StoreLockListener<T>
+{
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: StoreLockListener<T>) -> Self {
+        listener
+    }
+}
+
 fn receive_bare_mutex<M, T: ?Sized + Store<M>>(
     mutex: &maybe_sync::Mutex<T>,
     messages: &[M],

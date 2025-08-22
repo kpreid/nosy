@@ -217,6 +217,13 @@ impl<M> Listener<M> for WakeFlagListener {
     }
 }
 
+impl<M> crate::FromListener<WakeFlagListener, M> for WakeFlagListener {
+    /// No-op conversion returning the listener unchanged.
+    fn from_listener(listener: WakeFlagListener) -> Self {
+        listener
+    }
+}
+
 impl Drop for WakeFlagListener {
     fn drop(&mut self) {
         if let Some(shared) = self.shared.upgrade() {
