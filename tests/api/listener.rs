@@ -4,7 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use nosy::{sync, unsync, Flag, FromListener, Listen, Log, NullListener};
+use nosy::{Flag, FromListener, Listen, Log, NullListener, sync, unsync};
 
 #[test]
 fn dyn_listen_is_possible() {

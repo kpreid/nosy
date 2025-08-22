@@ -5,8 +5,8 @@ use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
 
 use crate::{
-    maybe_sync, FromListener, Gate, GateListener, IntoListener, Listen, Listener, Notifier,
-    NotifierForwarder, Source,
+    FromListener, Gate, GateListener, IntoListener, Listen, Listener, Notifier, NotifierForwarder,
+    Source, maybe_sync,
 };
 
 // -------------------------------------------------------------------------------------------------

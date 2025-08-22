@@ -1,6 +1,6 @@
 //! Type-erasure related traits and impls.
 
-use crate::{sync, unsync, Listener};
+use crate::{Listener, sync, unsync};
 
 #[cfg(doc)]
 use crate::{Listen, Notifier};
