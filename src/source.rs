@@ -167,6 +167,17 @@ impl<T: ?Sized + Source> Source for alloc::sync::Arc<T> {
 /// * `T` is the type of the value.
 /// * `L` is the type of [`Listener`] this source accepts but never uses
 ///   (necessary to implement [`Listen`]).
+///
+/// # Example
+///
+/// ```
+/// use nosy::{unsync::Constant, Source as _};
+///
+/// let constant: Constant<i32> = Constant::new(3);
+///
+/// assert_eq!(constant.map(|x| x * 10).get(), 30);
+/// ```
+// TODO: give a better example than this, that illustrates its usage better somehow
 pub struct Constant<T, L> {
     value: T,
     _phantom: PhantomData<fn(L)>,
