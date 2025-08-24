@@ -151,9 +151,3 @@ const _: () = {
         assert_impl_all!(nosy::future::WakeFlagListener: Clone, Send, Sync, Unpin, RefUnwindSafe, UnwindSafe);
     }
 };
-
-// Test that deprecations are as expected
-#[expect(unused, deprecated)]
-use nosy::Sink as SinkIsDeprecated;
-#[expect(unused, deprecated)]
-use nosy::SinkListener as SinkListenerIsDeprecated;

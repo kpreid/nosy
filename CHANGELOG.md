@@ -15,6 +15,10 @@
   `FromListener` newly allows blanket implementations for converting to types not defined in `nosy` itself, i.e. `impl<L, M> FromListener<L, M> for MyPointer<dyn MyListener>`.
   `IntoListener` is a sealed trait implemented for all `FromListener`, which is more convenient to use when accepting a listener than `FromListener` is.
 
+### Removed
+
+- Removed deprecated names `Sink` and `SinkListener`. Use `Log` and `LogListener` instead.
+
 ## 0.1.1 (2025-06-12)
 
 ### Added

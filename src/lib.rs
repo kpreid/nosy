@@ -191,13 +191,6 @@ pub use store::{Store, StoreLock, StoreLockListener};
 
 mod util;
 
-#[deprecated = "use `Log` instead of `Sink`"]
-#[allow(missing_docs)]
-pub type Sink<M> = Log<M>;
-#[deprecated = "use `LogListener` instead of `SinkListener`"]
-#[allow(missing_docs)]
-pub type SinkListener<M> = LogListener<M>;
-
 // -------------------------------------------------------------------------------------------------
 
 /// Type aliases for use in applications where listeners are expected to implement [`Sync`].
