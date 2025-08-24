@@ -115,7 +115,28 @@ pub trait Source: Listen<Msg = ()> + fmt::Debug {
     /// reference count update; you can enforce this by making sure that `Self::Value`
     /// is some variety of [`Arc`], such as [`sync::DynSource`](crate::sync::DynSource).
     ///
-    // TODO: example
+    /// # Example
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use nosy::{unsync::{Cell, DynSource}, Source as _};
+    ///
+    /// let cell_inner_1: Cell<i32> = Cell::new(100);
+    /// let cell_inner_2: Cell<i32> = Cell::new(200);
+    /// let cell_outer: Cell<DynSource<i32>> = Cell::new(cell_inner_1.as_source());
+    ///
+    /// let flattened_source: DynSource<i32> = Arc::new(cell_outer.as_source().flatten());
+    /// assert_eq!(flattened_source.get(), 100);
+    ///
+    /// cell_inner_1.set(101);
+    /// assert_eq!(flattened_source.get(), 101);
+    ///
+    /// cell_outer.set(cell_inner_2.as_source());
+    /// assert_eq!(flattened_source.get(), 200);
+    ///
+    /// cell_inner_2.set(201);
+    /// assert_eq!(flattened_source.get(), 201);
+    /// ```
     fn flatten(self) -> Flatten<Self>
     where
         Self: Sized,
