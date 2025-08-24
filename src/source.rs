@@ -21,10 +21,6 @@ pub use map::Map;
 
 /// Access to a value that might change and notifications when it does.
 ///
-/// `Source`s should usually, but are not required to, implement [`Clone`] such that all clones
-/// have identical future behavior (values returned and messages sent). They should implement
-/// [`fmt::Debug`] in a way which identifies the source rather than only its current value.
-///
 /// The change notifications given are of type `()`; they do not allow access to the new value.
 /// This is an unfortunate necessity to allow sources to deliver notifications
 /// *after* the value has changed (i.e. while not holding any lock) without also needing a clone
@@ -35,12 +31,22 @@ pub use map::Map;
 ///
 /// If a `Source` is known to be in a state such that its value will never change again,
 /// then it should drop all of its current and future listeners.
-/// This may be accomplished through [`Notifier::close()`].
+/// This may typically be accomplished through [`Notifier::close()`].
 ///
 /// The type aliases [`sync::DynSource`](crate::sync::DynSource)
 /// and [`unsync::DynSource`](crate::unsync::DynSource) are available for type-erased `Source`s
 /// with type-erased `Listener`s. If you want a value and don’t care about the type of the source
 /// it comes from, use them.
+///
+/// Additional traits sources may implement:
+///
+/// * They should, but are not required to, implement [`Clone`]; if they do, all clones
+///   should have identical future behavior (values returned and messages sent).
+/// * They should implement [`fmt::Debug`] in a way which identifies the source rather than only
+///   its current value, if this is possible possible without printing memory addresses or other
+///   non-deterministic information.
+/// * They should implement [`fmt::Pointer`] to print an address or other information which
+///   uniquely identifies the source, if possible.
 //---
 // Design note: All `Source`s must implement `Debug`;
 // ideally, only `DynSource` would have this requirement, but that is not possible since it would be
