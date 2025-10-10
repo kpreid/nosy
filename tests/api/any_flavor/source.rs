@@ -1,11 +1,6 @@
-use std::sync::Arc;
-
 use nosy::{Listen as _, Log, Source as _};
 
 use super::flavor;
-
-// TODO: put this in the flavor modules?
-type CellSource<T> = Arc<nosy::CellSource<T, flavor::DynListener<()>>>;
 
 mod constant {
     use super::*;
@@ -38,7 +33,7 @@ mod flatten {
         let cell_2 = flavor::Cell::new(20);
         let cell_of_source = flavor::Cell::new(cell_1.as_source());
 
-        let flatten: nosy::Flatten<CellSource<CellSource<i8>>> =
+        let flatten: nosy::Flatten<flavor::CellSource<flavor::CellSource<i8>>> =
             cell_of_source.as_source().flatten();
         let log: Log<()> = Log::new();
         flatten.listen(log.listener());
@@ -94,7 +89,8 @@ mod map {
     #[test]
     fn usage() {
         let cell = flavor::Cell::new(1);
-        let mapped: nosy::Map<CellSource<u8>, _> = cell.as_source().map(|x: u8| u16::from(x) * 100);
+        let mapped: nosy::Map<flavor::CellSource<u8>, _> =
+            cell.as_source().map(|x: u8| u16::from(x) * 100);
         let log: Log<()> = Log::new();
         mapped.listen(log.listener());
 
