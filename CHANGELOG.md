@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+## Added
+
+- `trait LoadStore`, which can be used to provide alternative interior mutability (such as a `no_std` `Mutex` type) to `nosy::Cell`.
+  Provided implementations also allow using `Cell` or `Atomic*` rather than a `Mutex` or `RefCell`, to increase efficiency.
+
+## Changed
+
+- The first generic parameter of `nosy::Cell` is now the type of the interior mutable container for the value rather than the value.
+  (The type aliases `nosy::{sync,unsync}::Cell` have not changed.)
+
 ## 0.2.0 (2025-08-24)
 
 ### Added

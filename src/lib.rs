@@ -80,10 +80,11 @@
 //!
 //!   It is possible to use a subset of `nosy`’s functionality as <code>[Send] + [Sync]</code>
 //!   without enabling this feature and without depending on `std`.
-//!   In particular, you may wish to use [`sync::RawNotifier`], and the [`Flag`] and
+//!   In particular, you may wish to use [`sync::RawNotifier`]; the [`Flag`] and
 #![cfg_attr(feature = "async", doc = "   [`future::WakeFlag`]")]
 #![cfg_attr(not(feature = "async"), doc = "   `future::WakeFlag`")]
-//!   listeners are always `Send + Sync`.
+//!   listeners are always `Send + Sync`; and [`Cell`] can have its internal interior mutability
+//!   swapped out if you implement the [`LoadStore`] trait.
 //!
 //! # Limitations
 //!
@@ -105,7 +106,7 @@
 //!   non-`dyn` listener type or enum of listener types. See [`FromListener`] for more information.
 //!
 //! * There is not yet any support for bringing your own `Mutex` type to enable
-//!   [`Notifier`], [`StoreLock`], and [`Cell`] to be <code>[Send] + [Sync]</code> without [`std`].
+//!   [`Notifier`] and [`StoreLock`] to be <code>[Send] + [Sync]</code> without [`std`].
 //!   If you need these features, you must use [`RawNotifier`] and implement the other components
 //!   yourself.
 //!
@@ -196,9 +197,14 @@ pub use store::{Store, StoreLock, StoreLockListener};
 
 mod util;
 
+mod load_store;
+pub use load_store::LoadStore;
+
 // -------------------------------------------------------------------------------------------------
 
 /// Type aliases for use in applications where listeners are expected to implement [`Sync`].
+///
+/// Some of the items in this module are only available with the `"sync"` feature.
 pub mod sync {
     #[cfg(doc)]
     use crate::unsync;
@@ -257,20 +263,32 @@ pub mod sync {
         Arc::new(Constant::new(value))
     }
 
-    /// An interior-mutable container for a value which notifies when the value changed.
+    /// An interior-mutable container for a single value, which notifies when the value is changed.
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
     /// When this requirement is undesired, use [`unsync::Cell`] instead.
+    ///
+    /// This type uses a [`std::sync::Mutex`] to store its `T` value.
+    /// When `T` can be stored in an [atomic type][core::sync::atomic], using
+    /// [`nosy::Cell`][crate::Cell] with that atomic type will be more efficient.
     #[cfg(feature = "sync")]
-    pub type Cell<T> = crate::Cell<T, DynListener<()>>;
+    pub type Cell<T> = crate::Cell<std::sync::Mutex<T>, DynListener<()>>;
 
     /// Like [`Cell`], but allows borrowing the current value,
     /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Listener`]s be so.
     /// When this requirement is undesired, use [`unsync::CellWithLocal`] instead.
+    ///
+    /// This type uses a [`std::sync::Mutex`] to store its `T` value.
+    /// When `T` can be stored in an [atomic type][core::sync::atomic], using
+    /// [`nosy::Cell`][crate::Cell] with that atomic type will be more efficient.
     #[cfg(feature = "sync")]
-    pub type CellWithLocal<T> = crate::CellWithLocal<T, DynListener<()>>;
+    pub type CellWithLocal<T> = crate::CellWithLocal<std::sync::Mutex<T>, DynListener<()>>;
+
+    /// [`Cell::as_source()`] implementation.
+    #[cfg(feature = "sync")]
+    pub type CellSource<T> = Arc<crate::CellSource<std::sync::Mutex<T>, DynListener<()>>>;
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
@@ -339,18 +357,29 @@ pub mod unsync {
         Arc::new(Constant::new(value))
     }
 
-    /// An interior-mutable container for a value which notifies when the value changed.
+    /// An interior-mutable container for a single value, which notifies when the value is changed.
     ///
     /// This type is not [`Send`] or [`Sync`].
     /// When that is needed, use [`sync::Cell`] instead.
-    pub type Cell<T> = crate::Cell<T, DynListener<()>>;
+    ///
+    /// This type uses a [`core::cell::RefCell`] to store its `T` value.
+    /// When `T` implements [`Copy`], using
+    /// [`nosy::Cell`][crate::Cell] containing [`core::cell::Cell`] will be more efficient.
+    pub type Cell<T> = crate::Cell<core::cell::RefCell<T>, DynListener<()>>;
 
     /// Like [`Cell`], but allows borrowing the current value,
     /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
     ///
     /// This type is not [`Send`] or [`Sync`].
     /// When that is needed, use [`sync::CellWithLocal`] instead.
-    pub type CellWithLocal<T> = crate::CellWithLocal<T, DynListener<()>>;
+    ///
+    /// This type uses a [`core::cell::RefCell`] to store its `T` value.
+    /// When `T` implements [`Copy`], using
+    /// [`nosy::Cell`][crate::Cell] containing [`core::cell::Cell`] will be more efficient.
+    pub type CellWithLocal<T> = crate::CellWithLocal<core::cell::RefCell<T>, DynListener<()>>;
+
+    /// [`Cell::as_source()`] implementation.
+    pub type CellSource<T> = Arc<crate::CellSource<core::cell::RefCell<T>, DynListener<()>>>;
 }
 
 // TODO: Do we want to offer this? It is something of a non-additivity hazard.

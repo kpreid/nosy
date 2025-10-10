@@ -1,8 +1,7 @@
 use alloc::sync::Arc;
-use core::{fmt, mem};
+use core::fmt;
 
-use crate::maybe_sync::{Mutex, MutexGuard};
-use crate::{IntoListener, Listen, Listener, Notifier, Source};
+use crate::{IntoListener, Listen, Listener, LoadStore, Notifier, Source};
 
 #[cfg(doc)]
 use crate::{sync, unsync};
@@ -10,27 +9,35 @@ use crate::{sync, unsync};
 // -------------------------------------------------------------------------------------------------
 
 #[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
-/// An interior-mutable container for a value which notifies when the value changed.
+/// An interior-mutable container for a single value, which notifies when the value is changed.
 ///
-/// The implementation uses a mutex to manage access to the value.
-/// The mutex will only be locked as long as necessary to clone or compare the value,
-/// so deadlock is impossible unless `T as Clone` or `T as PartialEq` uses a shared lock itself.
+/// This type is a generic wrapper for any kind of interior mutability that can implement
+/// [`LoadStore`]
+/// — atomics, mutexes, or even [`core::cell::Cell`] —
+/// and adds change notifications and the [`Source`] trait to that container type.
 ///
-/// Access to the value requires cloning it, so if the clone is not cheap,
-/// consider wrapping the value with [`Arc`] to reduce the cost to reference count changes.
+/// When used with a mutex to manage access to the value,
+/// the mutex will only be locked as long as necessary to clone or compare the value, so
+/// deadlock is impossible unless the value’s [`Clone`] or [`PartialEq`] uses a shared lock itself.
+///
+/// In general, reading the value requires cloning it, so if the clone is not cheap,
+/// consider wrapping the value with [`Arc`] so that the cost is only updating of reference counts.
 ///
 /// # Generic parameters
 ///
-/// * `T` is the type of the value.
+/// * `S` is the type of the interior-mutable storage of the value, such as a mutex or an atomic
+///   type.
+///   The type of the value itself is equal to <code>&lt;S as [LoadStore]&gt;::Value</code>.
 /// * `L` is the type of [`Listener`] this cell accepts,
 ///   usually a trait object type such as [`sync::DynListener`].
 ///
-/// We recommend that you use the type aliases [`sync::Cell`] or [`unsync::Cell`],
-/// to avoid writing the type parameter `L` outside of special cases.
-pub struct Cell<T, L> {
+/// We recommend that you use the type aliases [`sync::Cell`] or [`unsync::Cell`] in simple cases.
+///
+// TODO: Add basic example particularly so users see how `S` works
+pub struct Cell<S, L> {
     /// Access to the state this cell shares with all `Source`s.
     /// Publicly, only `Cell` can be used to mutate the `CellSource` data.
-    shared: Arc<CellSource<T, L>>,
+    shared: Arc<CellSource<S, L>>,
 }
 
 /// [`Cell::as_source()`] implementation.
@@ -39,7 +46,11 @@ pub struct Cell<T, L> {
 ///
 /// # Generic parameters
 ///
-/// * `T` is the type of the value.
+/// The parameters are equal to those of its associated [`Cell`].
+///
+/// * `S` is the type of the interior-mutable storage of the value, such as a mutex or an atomic
+///   type.
+///   The type of the value itself is equal to <code>&lt;S as [LoadStore]&gt;::Value</code>.
 /// * `L` is the type of [`Listener`] this source accepts,
 ///   usually a trait object type such as [`sync::DynListener`].
 //---
@@ -49,20 +60,20 @@ pub struct Cell<T, L> {
 //
 //     struct CellSource<T, L>(Arc<CellShared<T, L>>);
 //     impl<T, L> Source for CellSource<T, L> {...}
-pub struct CellSource<T, L> {
-    value_mutex: Mutex<T>,
+pub struct CellSource<S, L> {
+    value_mutex: S,
     notifier: Notifier<(), L>,
 }
 
 // -------------------------------------------------------------------------------------------------
 
-impl<T: Clone, L: Listener<()>> Cell<T, L> {
+impl<S: LoadStore, L: Listener<()>> Cell<S, L> {
     /// Creates a new [`Cell`] containing the given value.
     #[must_use]
-    pub fn new(value: T) -> Self {
+    pub fn new(value: S::Value) -> Self {
         Self {
             shared: Arc::new(CellSource {
-                value_mutex: Mutex::new(value),
+                value_mutex: S::new(value),
                 notifier: Notifier::new(),
             }),
         }
@@ -74,14 +85,14 @@ impl<T: Clone, L: Listener<()>> Cell<T, L> {
     /// It can be coerced to [`sync::DynSource`] or [`unsync::DynSource`]
     /// when `T` and `L` meet the required bounds.
     #[must_use]
-    pub fn as_source(&self) -> Arc<CellSource<T, L>> {
+    pub fn as_source(&self) -> Arc<CellSource<S, L>> {
         self.shared.clone()
     }
 
     /// Returns a clone of the current value of this cell.
     #[must_use]
-    pub fn get(&self) -> T {
-        self.shared.value_mutex.lock().clone()
+    pub fn get(&self) -> S::Value {
+        self.shared.value_mutex.get()
     }
 
     /// Sets the value of this cell and sends out a change notification.
@@ -91,12 +102,12 @@ impl<T: Clone, L: Listener<()>> Cell<T, L> {
     ///
     /// Caution: While listeners are *expected* not to have immediate side effects on
     /// notification, this cannot be enforced.
-    pub fn set(&self, value: T) {
-        // Using mem::replace instead of assignment so that _old_value will be dropped
-        // after unlocking instead of before.
-        let _old_value = mem::replace(&mut *self.shared.value_mutex.lock(), value);
+    pub fn set(&self, value: S::Value) {
+        let shared: &CellSource<S, L> = &self.shared;
 
-        self.shared.notifier.notify(&());
+        let old_value = shared.value_mutex.replace(value);
+        shared.notifier.notify(&());
+        drop(old_value);
     }
 
     /// Sets the contained value to the given value iff they are unequal.
@@ -120,23 +131,17 @@ impl<T: Clone, L: Listener<()>> Cell<T, L> {
     /// cell.set_if_unequal(2);
     /// assert_eq!(flag.get_and_clear(), false);
     /// ```
-    pub fn set_if_unequal(&self, value: T)
+    pub fn set_if_unequal(&self, value: S::Value)
     where
-        T: PartialEq,
+        S::Value: PartialEq,
     {
-        let mut guard: MutexGuard<'_, T> = self.shared.value_mutex.lock();
-        if value == *guard {
-            return;
+        match self.shared.value_mutex.replace_if_unequal(value) {
+            Ok(old_value) => {
+                self.shared.notifier.notify(&());
+                drop(old_value);
+            }
+            Err(new_value) => drop(new_value),
         }
-
-        let _old_value = mem::replace(&mut *guard, value);
-
-        // Don't hold the lock while notifying.
-        // Listeners shouldn't be trying to read immediately, but we don't want to create
-        // this deadlock opportunity regardless.
-        drop(guard);
-
-        self.shared.notifier.notify(&());
     }
 
     /// Sets the contained value by modifying a clone of the old value using the provided
@@ -145,14 +150,14 @@ impl<T: Clone, L: Listener<()>> Cell<T, L> {
     /// Note: this function is not atomic, in that other modifications can be made between
     /// the time this function reads the current value and writes the new one. It is not any more
     /// powerful than calling `get()` followed by `set()`.
-    pub fn update_mut<F: FnOnce(&mut T)>(&self, f: F) {
+    pub fn update_mut<F: FnOnce(&mut S::Value)>(&self, f: F) {
         let mut value = self.get();
         f(&mut value);
         self.set(value);
     }
 }
 
-impl<T, L> Drop for Cell<T, L> {
+impl<S, L> Drop for Cell<S, L> {
     fn drop(&mut self) {
         // If the `Cell` is dropped, then the `Source`s should not retain their `Listener`s.
         self.shared.notifier.close()
@@ -161,7 +166,7 @@ impl<T, L> Drop for Cell<T, L> {
 
 // -------------------------------------------------------------------------------------------------
 
-impl<T, L: Listener<()>> Listen for CellSource<T, L> {
+impl<S, L: Listener<()>> Listen for CellSource<S, L> {
     type Msg = ();
     type Listener = L;
 
@@ -173,7 +178,7 @@ impl<T, L: Listener<()>> Listen for CellSource<T, L> {
         self.notifier.listen(listener)
     }
 }
-impl<T, L: Listener<()>> Listen for Cell<T, L> {
+impl<S, L: Listener<()>> Listen for Cell<S, L> {
     type Msg = ();
     type Listener = L;
 
@@ -185,7 +190,7 @@ impl<T, L: Listener<()>> Listen for Cell<T, L> {
         self.shared.listen(listener)
     }
 }
-impl<T, L: Listener<()>> Listen for CellWithLocal<T, L> {
+impl<S: LoadStore<Value: Clone>, L: Listener<()>> Listen for CellWithLocal<S, L> {
     type Msg = ();
     type Listener = L;
 
@@ -198,15 +203,15 @@ impl<T, L: Listener<()>> Listen for CellWithLocal<T, L> {
     }
 }
 
-impl<T, L> Source for CellSource<T, L>
+impl<S, L> Source for CellSource<S, L>
 where
-    T: Clone + fmt::Debug,
+    S: LoadStore<Value: fmt::Debug>,
     L: Listener<()>,
 {
-    type Value = T;
+    type Value = S::Value;
 
-    fn get(&self) -> T {
-        T::clone(&*self.value_mutex.lock())
+    fn get(&self) -> S::Value {
+        self.value_mutex.get()
     }
 }
 
@@ -219,23 +224,28 @@ where
 /// We recommend that you use the type aliases [`sync::CellWithLocal`] or [`unsync::CellWithLocal`],
 /// to avoid writing the type parameter `L` outside of special cases.
 ///
+/// Note: If `S` is not a mutex and `S::Value` is not large, there is probably no advantage to
+/// using this type instead of [`Cell`].
+///
 /// # Generic parameters
 ///
-/// * `T` is the type of the value.
+/// * `S` is the type of the interior-mutable storage of the value, such as a mutex or an atomic
+///   type.
+///   The type of the value itself is equal to <code>&lt;S as [LoadStore]&gt;::Value</code>.
 /// * `L` is the type of [`Listener`] this cell accepts,
 ///   usually a trait object type such as [`sync::DynListener`].
-pub struct CellWithLocal<T, L> {
-    cell: Cell<T, L>,
-    value: T,
+pub struct CellWithLocal<S: LoadStore, L> {
+    cell: Cell<S, L>,
+    value: S::Value,
 }
 
-impl<T, L> CellWithLocal<T, L>
+impl<S, L> CellWithLocal<S, L>
 where
-    T: Clone,
+    S: LoadStore<Value: Clone>,
     L: Listener<()>,
 {
     /// Creates a new [`CellWithLocal`] containing the given value.
-    pub fn new(value: T) -> Self {
+    pub fn new(value: S::Value) -> Self {
         Self {
             value: value.clone(),
             cell: Cell::new(value),
@@ -246,8 +256,8 @@ where
     /// held by this cell.
     ///
     /// It can be coerced to [`sync::DynSource`] or [`unsync::DynSource`]
-    /// when `T` and `L` meet the required bounds.
-    pub fn as_source(&self) -> Arc<CellSource<T, L>> {
+    /// when `S` and `L` meet the required bounds.
+    pub fn as_source(&self) -> Arc<CellSource<S, L>> {
         self.cell.as_source()
     }
 
@@ -257,25 +267,25 @@ where
     ///
     /// Caution: While listeners are *expected* not to have immediate side effects on
     /// notification, this cannot be enforced.
-    pub fn set(&mut self, value: T) {
+    pub fn set(&mut self, value: S::Value) {
         self.value = value;
         self.cell.set(self.value.clone());
     }
 
     /// Returns a reference to the current value of this cell.
-    pub fn get(&self) -> &T {
+    pub fn get(&self) -> &S::Value {
         &self.value
     }
 }
 
 // -------------------------------------------------------------------------------------------------
 
-impl<T: Clone + Default, L: Listener<()>> Default for Cell<T, L> {
+impl<S: LoadStore<Value: Default>, L: Listener<()>> Default for Cell<S, L> {
     fn default() -> Self {
         Self::new(Default::default())
     }
 }
-impl<T: Clone + Default, L: Listener<()>> Default for CellWithLocal<T, L> {
+impl<S: LoadStore<Value: Clone + Default>, L: Listener<()>> Default for CellWithLocal<S, L> {
     fn default() -> Self {
         Self::new(Default::default())
     }
@@ -283,7 +293,7 @@ impl<T: Clone + Default, L: Listener<()>> Default for CellWithLocal<T, L> {
 
 // -------------------------------------------------------------------------------------------------
 
-impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for Cell<T, L> {
+impl<S: LoadStore<Value: fmt::Debug>, L: Listener<()>> fmt::Debug for Cell<S, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut ds = f.debug_struct("Cell");
         // Note that we do not simply lock the mutex and avoid cloning the value.
@@ -294,7 +304,7 @@ impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for Cell<T, L> {
         ds.finish()
     }
 }
-impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for CellSource<T, L> {
+impl<S: LoadStore<Value: fmt::Debug>, L: Listener<()>> fmt::Debug for CellSource<S, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             value_mutex: _, // used via get()
@@ -310,7 +320,7 @@ impl<T: Clone + fmt::Debug, L: Listener<()>> fmt::Debug for CellSource<T, L> {
         ds.finish()
     }
 }
-impl<T: fmt::Debug, L: Listener<()>> fmt::Debug for CellWithLocal<T, L> {
+impl<S: LoadStore<Value: fmt::Debug>, L: Listener<()>> fmt::Debug for CellWithLocal<S, L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut ds = f.debug_struct("CellWithLocal");
         ds.field("value", &self.value);
@@ -322,9 +332,9 @@ impl<T: fmt::Debug, L: Listener<()>> fmt::Debug for CellWithLocal<T, L> {
 // Pointer printing implementations to enable determining whether a cell and a source share
 // state. Including the debug_struct to avoid confusion over double indirection.
 //
-// (We would like to impl<T, L> fmt::Pointer for Arc<CellSource<T, L>> {}
+// (We would like to impl<S, L> fmt::Pointer for Arc<CellSource<S, L>> {}
 // but that implementation is overlapping.)
-impl<T, L: Listener<()>> fmt::Pointer for Cell<T, L> {
+impl<S, L: Listener<()>> fmt::Pointer for Cell<S, L> {
     /// Prints the address of the cell's state storage, which is shared with
     /// [`Source`]s created from this cell.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -333,7 +343,7 @@ impl<T, L: Listener<()>> fmt::Pointer for Cell<T, L> {
         ds.finish()
     }
 }
-impl<T, L: Listener<()>> fmt::Pointer for CellWithLocal<T, L> {
+impl<S: LoadStore, L: Listener<()>> fmt::Pointer for CellWithLocal<S, L> {
     /// Prints the address of the cell's state storage, which is shared with
     /// [`Source`]s created from this cell.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -343,9 +353,9 @@ impl<T, L: Listener<()>> fmt::Pointer for CellWithLocal<T, L> {
     }
 }
 
-fn format_cell_metadata<T, L: Listener<()>>(
+fn format_cell_metadata<S, L: Listener<()>>(
     ds: &mut fmt::DebugStruct<'_, '_>,
-    storage: &Arc<CellSource<T, L>>,
+    storage: &Arc<CellSource<S, L>>,
 ) {
     ds.field("owners", &Arc::strong_count(storage));
     ds.field("listeners", &storage.notifier.count());
