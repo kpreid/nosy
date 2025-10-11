@@ -1,3 +1,5 @@
+use alloc::rc::Rc;
+use alloc::sync::Arc;
 use core::fmt;
 
 use crate::{Filter, Gate, IntoListener};
@@ -80,8 +82,8 @@ pub trait Listener<M>: fmt::Debug {
     /// collections or passed non-generically.
     /// The produced trait object does not implement [`Sync`].
     ///
-    /// The purpose of this method over simply calling [`Arc::new()`] is that it will
-    /// avoid double-wrapping of a listener that's already in [`Arc`].
+    /// The purpose of this method over simply calling [`Rc::new()`] is that it will
+    /// avoid double-wrapping of a listener that's already in [`Rc`].
     ///
     /// **You should not need to override or call this method;** use [`IntoListener`] instead.
     #[doc(hidden)]
@@ -89,7 +91,7 @@ pub trait Listener<M>: fmt::Debug {
     where
         Self: Sized + 'static,
     {
-        alloc::rc::Rc::new(self)
+        Rc::new(self)
     }
 
     /// Convert this listener into trait object form, allowing it to be stored in
@@ -105,7 +107,7 @@ pub trait Listener<M>: fmt::Debug {
     where
         Self: Sized + Send + Sync + 'static,
     {
-        alloc::sync::Arc::new(self)
+        Arc::new(self)
     }
 
     /// Wraps `self` so to apply a map/filter function (similar to [`Iterator::filter_map()`])
