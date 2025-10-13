@@ -6,6 +6,8 @@ mod future;
 mod listener;
 mod load_store;
 mod static_properties;
+mod store;
+mod store_ref;
 mod tools;
 
 // We want to test that `nosy::sync` and `nosy::unsync` are equally usable — that there are no
