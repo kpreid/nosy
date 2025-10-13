@@ -7,6 +7,17 @@
 - `trait LoadStore`, which can be used to provide alternative interior mutability (such as a `no_std` `Mutex` type) to `nosy::Cell`.
   Provided implementations also allow using `Cell` or `Atomic*` rather than a `Mutex` or `RefCell`, to increase efficiency.
 
+- `trait StoreRef`, which is like `Listener` but does not report aliveness, and like `Store` but does not require `&mut self`. This trait serves two purposes:
+
+  - It can be implemented for types would be `Listener`s except that they are not themselves weak references.
+    Then, the `nosy`-provided implementation `impl<T: StoreRef<M>, M> Listener<M> for Weak<T>` provides an implementation of `Listener` when that type is wrapped in a weak reference.
+    Thus, one need not repeat the weak-reference logic in every listener.
+  
+  - `nosy` provides implementations like
+    `impl<T: Store<M>, M> StoreRef<M> for Mutex<T>`, and one can do the same for new `no_std` lock types.
+    Thus, `Weak<Mutex<MyStore>>` provides the same functionality as `nosy::StoreLockListener<MyStore>`, but its individual parts are replaceable.
+    
+
 ## Changed
 
 - The first generic parameter of `nosy::Cell` is now the type of the interior mutable container for the value rather than the value.

@@ -5,7 +5,7 @@ use core::fmt;
 use crate::{Filter, Gate, IntoListener};
 
 #[cfg(doc)]
-use crate::{FlagListener, Notifier, Store, StoreLock};
+use crate::{Flag, FlagListener, Notifier, Store, StoreLock, StoreRef};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -16,15 +16,22 @@ use crate::{FlagListener, Notifier, Store, StoreLock};
 ///
 /// Listeners are typically used in trait object form, which may be created via the
 /// [`IntoListener`] trait in addition to the usual coercions;
-/// this is done automatically by [`Listen`], but calling it earlier may be useful to minimize
-/// the number of separately allocated clones of the listener when the same listener is
+/// this is done automatically by [`Listen`], but calling `.into_listener()` earlier may be useful
+/// to minimize the number of separately allocated clones of the listener when the same listener is
 /// to be registered with multiple message sources.
 ///
-/// Please note the requirements set out in [`Listener::receive()`].
+/// If you are implementing [`Listener`],  note the requirements set out in [`Listener::receive()`].
+/// Instead of writing new implementations, consider the following alternatives when you need a
+/// listener:
 ///
-/// Consider implementing [`Store`] and using [`StoreLock`] instead of implementing [`Listener`].
-/// [`StoreLock`] provides the weak reference and mutex that are needed in the most common
-/// kind of use of [`Listener`].
+/// * Use an existing implementation such as [`FlagListener`] from [`Flag`].
+/// * Implement [`Store`] instead, and use [`StoreLock`] instead.
+///   [`StoreLock`] provides the weak reference and mutex that are needed in the most common
+///   kind of use of [`Listener`].
+/// * Implement [`StoreRef`] for an interior mutable data structure, then wrap it in
+///   [`Weak`][alloc::sync::Weak] to make it a listener.
+///   (This works via via the built-in implementation
+///   `impl<T: StoreRef<M>, M> Listener<M> for Weak<T>`).
 ///
 /// # Generic parameters
 ///
@@ -39,6 +46,8 @@ pub trait Listener<M>: fmt::Debug {
     /// delivering any messages.
     ///
     /// # Requirements on implementors
+    ///
+    // [Docs maintenance note: keep wording consistent with the below, `Store`, and `StoreRef`.]
     ///
     /// * Messages are provided in a batch for efficiency of dispatch.
     ///   Each message in the provided slice should be processed exactly the same as if
