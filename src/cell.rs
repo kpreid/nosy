@@ -8,7 +8,7 @@ use crate::{sync, unsync};
 
 // -------------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 /// An interior-mutable container for a single value, which notifies when the value is changed.
 ///
 /// This type is a generic wrapper for any kind of interior mutability that can implement
@@ -217,7 +217,7 @@ where
 
 // -------------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 /// Like [`Cell`], but allows borrowing the current value,
 /// at the cost of requiring `&mut` access to set it, and storing an extra clone.
 ///

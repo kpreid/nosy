@@ -15,7 +15,7 @@ use crate::{FromListener, Source, sync};
 
 // -------------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 /// Delivers messages to a dynamic set of [`Listener`]s.
 ///
 /// The `Notifier` is usually owned by some entity which emits messages when it changes.
@@ -100,8 +100,8 @@ enum State<M, L> {
 ///
 /// Compared to [`Notifier`],
 /// this type requires `&mut` access to add listeners, and therefore does not implement [`Listen`].
-/// In exchange, it is always `Send + Sync` if the listener type is, even without `feature = "sync"`
-/// and thus without a dependency on `std`.
+/// In exchange, it is always `Send + Sync` if the listener type is, even without thread
+/// synchronization features enabled.
 ///
 /// We recommend that you use the type aliases [`sync::RawNotifier`][crate::sync::RawNotifier]
 /// or [`unsync::RawNotifier`][crate::unsync::RawNotifier], to avoid writing the type parameter
@@ -176,9 +176,12 @@ impl<M, L: Listener<M>> Notifier<M, L> {
     ///
     /// ```
     /// use std::sync::Arc;
-    #[cfg_attr(feature = "sync", doc = " use nosy::{Listen, sync::Notifier, Log};")]
     #[cfg_attr(
-        not(feature = "sync"),
+        feature = "std-sync",
+        doc = " use nosy::{Listen, sync::Notifier, Log};"
+    )]
+    #[cfg_attr(
+        not(feature = "std-sync"),
         doc = " use nosy::{Listen, unsync::Notifier, Log};"
     )]
     ///

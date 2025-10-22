@@ -24,7 +24,10 @@ default = []
 # Enables trait implementations on `std` types, rather than only `alloc` types.
 std = []
 # Enables use of `std::sync` to implement `Sync` for our types.
-sync = []
+std-sync = ["std"]
+# Enables use of `spin` to implement `Sync` for our types.
+# Overridden by `"std-sync"`.
+spin-sync = ["dep:spin"]
 # Enables async integration.
 async = ["dep:futures-core", "dep:futures-util"]
 
@@ -34,6 +37,7 @@ futures-core = { version = "0.3.31", optional = true, default-features = false }
 futures-util = { version = "0.3.31", optional = true, default-features = false }
 cfg-if = { version = "1.0.0", default-features = false }
 mutants = { version = "0.0.3", default-features = false }
+spin = { version = "0.9.8", optional = true, default-features = false, features = ["spin_mutex", "rwlock"] }
 
 [dev-dependencies]
 # For examples

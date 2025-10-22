@@ -71,20 +71,30 @@
 #![cfg_attr(feature = "async", doc = "[`future`]")]
 #![cfg_attr(not(feature = "async"), doc = "`future`")]
 //! module.
+//!
 //! * `"std"`:
 //!   Enable implementations of our traits for [`std`] types,
 //!   rather than only [`core`] and [`alloc`] types.
-//! * `"sync"`:
-//!   Makes use of [`std::sync`] to add [`Sync`] functionality for delivering messages across
-//!   threads; in particular, most of the [`sync`] module, and `Notifier: Sync` (when possible).
 //!
-//!   It is possible to use a subset of `nosy`’s functionality as <code>[Send] + [Sync]</code>
-//!   without enabling this feature and without depending on `std`.
-//!   In particular, you may wish to use [`sync::RawNotifier`]; the [`Flag`] and
+//! * `"std-sync"`:
+//!   Makes use of [`std::sync`] to add [`Sync`] to [`Notifier`], [`StoreLock`], and [`Flatten`].
+//!
+//!   Adds the type aliases <code>nosy::sync::{[Cell], [CellWithLocal], [CellSource]}</code>,
+//!   which depend on [`std::sync::Mutex`].
+//!
+//! * `"spin-sync"`:
+//!   Makes use of spinlocks to add [`Sync`] to [`Notifier`], [`StoreLock`], and [`Flatten`].
+//!   This is not recommended for general use and is primarily useful when [`Sync`] is required
+//!   yet the platform is `no_std` and single-threaded.
+//!   If both `"spin-sync"` and `"std-sync"` are enabled, `"std-sync"` takes priority.
+//!
+//! It is possible to use a subset of `nosy`’s functionality as <code>[Send] + [Sync]</code>
+//! without enabling this feature and without depending on `std`.
+//! In particular, you may wish to use [`sync::RawNotifier`]; the [`Flag`] and
 #![cfg_attr(feature = "async", doc = "   [`future::WakeFlag`]")]
 #![cfg_attr(not(feature = "async"), doc = "   `future::WakeFlag`")]
-//!   listeners are always `Send + Sync`; and [`Cell`] can have its internal interior mutability
-//!   swapped out if you implement the [`LoadStore`] trait.
+//! listeners are always `Send + Sync`; and [`Cell`] can have its internal interior mutability
+//! swapped out if you implement the [`LoadStore`] trait.
 //!
 //! # Limitations
 //!
@@ -114,6 +124,10 @@
 #![cfg_attr(
     not(feature = "std"),
     doc = " [`std::sync`]: https://doc.rust-lang.org/std/sync/"
+)]
+#![cfg_attr(
+    not(feature = "std"),
+    doc = " [`std::sync::Mutex`]: https://doc.rust-lang.org/std/sync/struct.Mutex.html"
 )]
 //! [platforms which support `std`]: https://doc.rust-lang.org/rustc/platform-support.html
 #![forbid(unsafe_code)]
@@ -158,7 +172,7 @@
 
 extern crate alloc;
 
-#[cfg(any(feature = "std", feature = "sync", test))]
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 // -------------------------------------------------------------------------------------------------
@@ -209,11 +223,12 @@ pub use load_store::LoadStore;
 ///
 /// Some of the items in this module are only available with the `"sync"` feature.
 pub mod sync {
-    #[cfg(doc)]
-    use crate::unsync;
     use crate::{Listener, Source};
     use alloc::sync::Arc;
     use core::fmt;
+
+    #[cfg(doc)]
+    use crate::{Listen, unsync};
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
@@ -232,7 +247,7 @@ pub mod sync {
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires all its [`Listener`]s to be so.
     /// When this requirement is undesired, use [`unsync::Notifier`] instead.
-    #[cfg(feature = "sync")]
+    #[cfg(any(feature = "std-sync", feature = "spin-sync"))]
     pub type Notifier<M> = crate::Notifier<M, DynListener<M>>;
 
     /// Message broadcaster without interior mutability.
@@ -241,15 +256,16 @@ pub mod sync {
     /// When this requirement is undesired, use [`unsync::Notifier`] or [`unsync::RawNotifier`]
     /// instead.
     ///
-    /// Its advantage over `Notifier` is that it is available even without `feature = "sync"`
-    /// (without depending on `std`).
+    /// Its advantage over `Notifier` is that it is available even without any thread
+    /// synchronization support. Its disadvantage is that it requires `&mut` access to use,
+    /// and cannot implement [`Listen`].
     pub type RawNotifier<M> = crate::RawNotifier<M, DynListener<M>>;
 
     /// A [`Listener`] which forwards messages through a [`Notifier`] to its listeners.
     ///
     /// This type is [`Send`] and [`Sync`] and therefore requires its [`Notifier`] be so.
     /// When this requirement is undesired, use [`unsync::NotifierForwarder`] instead.
-    #[cfg(feature = "sync")]
+    #[cfg(any(feature = "std-sync", feature = "spin-sync"))]
     pub type NotifierForwarder<M> = crate::NotifierForwarder<M, DynListener<M>>;
 
     /// A [`Source`] of a constant value.
@@ -274,7 +290,7 @@ pub mod sync {
     /// This type uses a [`std::sync::Mutex`] to store its `T` value.
     /// When `T` can be stored in an [atomic type][core::sync::atomic], using
     /// [`nosy::Cell`][crate::Cell] with that atomic type will be more efficient.
-    #[cfg(feature = "sync")]
+    #[cfg(feature = "std-sync")]
     pub type Cell<T> = crate::Cell<std::sync::Mutex<T>, DynListener<()>>;
 
     /// Like [`Cell`], but allows borrowing the current value,
@@ -286,23 +302,24 @@ pub mod sync {
     /// This type uses a [`std::sync::Mutex`] to store its `T` value.
     /// When `T` can be stored in an [atomic type][core::sync::atomic], using
     /// [`nosy::Cell`][crate::Cell] with that atomic type will be more efficient.
-    #[cfg(feature = "sync")]
+    #[cfg(feature = "std-sync")]
     pub type CellWithLocal<T> = crate::CellWithLocal<std::sync::Mutex<T>, DynListener<()>>;
 
     /// [`Cell::as_source()`] implementation.
-    #[cfg(feature = "sync")]
+    #[cfg(feature = "std-sync")]
     pub type CellSource<T> = Arc<crate::CellSource<std::sync::Mutex<T>, DynListener<()>>>;
 }
 
 /// Type aliases for use in applications where listeners are not expected to implement [`Sync`].
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 pub mod unsync {
-    #[cfg(doc)]
-    use crate::sync;
     use crate::{Listener, Source};
     use alloc::rc::Rc;
     use alloc::sync::Arc;
     use core::fmt;
+
+    #[cfg(doc)]
+    use crate::sync;
 
     /// Type-erased form of a [`Listener`] which accepts messages of type `M`.
     ///
@@ -384,13 +401,3 @@ pub mod unsync {
     /// [`Cell::as_source()`] implementation.
     pub type CellSource<T> = Arc<crate::CellSource<core::cell::RefCell<T>, DynListener<()>>>;
 }
-
-// TODO: Do we want to offer this? It is something of a non-additivity hazard.
-// mod sync_if_possible {
-//     #[cfg(feature = "sync")]
-//     pub(crate) use crate::sync::*;
-//     #[cfg(not(feature = "sync"))]
-//     pub(crate) use crate::unsync::*;
-// }
-
-// -------------------------------------------------------------------------------------------------

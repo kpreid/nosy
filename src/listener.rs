@@ -9,7 +9,7 @@ use crate::{Flag, FlagListener, Notifier, Store, StoreLock, StoreRef};
 
 // -------------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 /// A receiver of messages (typically from something implementing [`Listen`]) which can
 /// indicate when it is no longer interested in them (typically because the associated
 /// recipient has been dropped).

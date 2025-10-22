@@ -3,7 +3,7 @@ use core::sync::atomic::{self, Ordering::Relaxed};
 
 // -------------------------------------------------------------------------------------------------
 
-#[cfg_attr(not(feature = "sync"), allow(rustdoc::broken_intra_doc_links))]
+#[cfg_attr(not(feature = "std-sync"), allow(rustdoc::broken_intra_doc_links))]
 /// Interior-mutable storage for a value that can be replaced or copied.
 ///
 /// Types implementing this trait can be used to provide interior mutability for
@@ -118,7 +118,7 @@ impl<T: Clone> LoadStore for core::cell::RefCell<T> {
 // -------------------------------------------------------------------------------------------------
 // `std::sync` impls
 
-#[cfg(any(feature = "sync", feature = "std"))]
+#[cfg(feature = "std")]
 impl<T: Clone> LoadStore for std::sync::Mutex<T> {
     type Value = T;
     fn new(value: T) -> Self {
@@ -143,7 +143,7 @@ impl<T: Clone> LoadStore for std::sync::Mutex<T> {
     }
 }
 
-#[cfg(any(feature = "sync", feature = "std"))]
+#[cfg(feature = "std")]
 impl<T: Clone> LoadStore for std::sync::RwLock<T> {
     type Value = T;
     fn new(value: T) -> Self {
@@ -171,7 +171,7 @@ impl<T: Clone> LoadStore for std::sync::RwLock<T> {
 /// Lock poisoning can be ignored, because the only way we ever modify the value in the mutex
 /// is by [`mem::replace`] which does not panic, so the value is, at worst, stale, not
 /// internally inconsistent.
-#[cfg(any(feature = "sync", feature = "std"))]
+#[cfg(feature = "std")]
 fn unpoison<T>(result: Result<T, std::sync::PoisonError<T>>) -> T {
     match result {
         Ok(guard) => guard,

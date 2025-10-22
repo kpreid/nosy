@@ -227,7 +227,7 @@ impl<M> Listener<M> for sync::DynListener<M> {
     // into_dyn_listener_unsync() will result in double-wrapping.
     // That could be avoided by using `Arc` even for `unsync::DynListener`,
     // but that should be a rare case which is not worth the benefit of avoiding
-    // unnecessary atomic operations when feature = "sync" isn't even enabled.
+    // unnecessary atomic operations when feature = "*-sync" isn't even enabled.
 
     fn into_dyn_listener_sync(self) -> sync::DynListener<M> {
         self
