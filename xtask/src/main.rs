@@ -13,15 +13,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cargo(sh)
                 .args(["--quiet", "test", "--no-default-features"])
                 .run()?;
-            cargo(sh)
-                .args(["--quiet", "test", "--features=async"])
-                .run()?;
-            cargo(sh)
-                .args(["--quiet", "test", "--features=std"])
-                .run()?;
-            cargo(sh)
-                .args(["--quiet", "test", "--features=sync"])
-                .run()?;
+            for additional_feature in ["async", "std", "spin-sync", "std-sync"] {
+                cargo(sh)
+                    .args(["--quiet", "test", "--no-default-features"])
+                    .arg(format!("--features={additional_feature}"))
+                    .run()?;
+            }
 
             cargo(sh)
                 .args(["clippy", "--all-features", "--all-targets"])

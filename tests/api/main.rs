@@ -14,8 +14,10 @@ mod tools;
 // differences in declaration that cause one to be able to do something the other cannot,
 // other than their fundamental `Send + Sync` difference.
 // In order to do that, we write tests that are compiled once for each flavor.
-#[cfg(feature = "sync")]
-mod sync {
+#[cfg(feature = "std-sync")]
+// TODO: Ideally, we would test the "spin-sync" version but it has partial item availability
+// that's tricky to cfg for.
+mod std_sync {
     #![allow(clippy::duplicate_mod)]
     use nosy::sync as flavor;
     include!("any_flavor/mod.rs");

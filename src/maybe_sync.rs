@@ -10,7 +10,7 @@ use core::{fmt, ops};
 // Since both types are in `alloc`, the only thing this saves is atomic refcounting operations,
 // but we might as well.
 cfg_if::cfg_if! {
-    if #[cfg(feature = "sync")] {
+    if #[cfg(any(feature = "std-sync", feature = "spin-sync"))] {
         pub(crate) type MaRc<T> = alloc::sync::Arc<T>;
         pub(crate) type MaWeak<T> = alloc::sync::Weak<T>;
     } else {
@@ -73,12 +73,18 @@ pub(crate) struct RwLockWriteGuard<'a, T: ?Sized> {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "sync")] {
+    if #[cfg(feature = "std-sync")] {
         type InnerMutex<T> = std::sync::Mutex<T>;
         type InnerMutexGuard<'a, T> = std::sync::MutexGuard<'a, T>;
         type InnerRwLock<T> = std::sync::RwLock<T>;
         type InnerRwLockReadGuard<'a, T> = std::sync::RwLockReadGuard<'a, T>;
         type InnerRwLockWriteGuard<'a, T> = std::sync::RwLockWriteGuard<'a, T>;
+    } else if #[cfg(feature = "spin-sync")] {
+        type InnerMutex<T> = spin::Mutex<T>;
+        type InnerMutexGuard<'a, T> = spin::MutexGuard<'a, T>;
+        type InnerRwLock<T> = spin::RwLock<T>;
+        type InnerRwLockReadGuard<'a, T> = spin::RwLockReadGuard<'a, T>;
+        type InnerRwLockWriteGuard<'a, T> = spin::RwLockWriteGuard<'a, T>;
     } else {
         type InnerMutex<T> = core::cell::RefCell<T>;
         type InnerMutexGuard<'a, T> = core::cell::RefMut<'a, T>;
@@ -112,8 +118,10 @@ impl<T> Mutex<T> {
 impl<T: ?Sized> Mutex<T> {
     pub(crate) fn lock(&self) -> MutexGuard<'_, T> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sync")] {
+            if #[cfg(any(feature = "std-sync"))] {
                 let guard = unpoison(self.lock.lock());
+            } else if #[cfg(feature = "spin-sync")] {
+                let guard = self.lock.lock();
             } else {
                 let guard = self.lock.borrow_mut();
             }
@@ -137,8 +145,10 @@ impl<T> RwLock<T> {
 impl<T: ?Sized> RwLock<T> {
     pub(crate) fn read(&self) -> RwLockReadGuard<'_, T> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sync")] {
+            if #[cfg(feature = "std-sync")] {
                 let guard = unpoison(self.lock.read());
+            } else if #[cfg(feature = "spin-sync")] {
+                let guard = self.lock.read();
             } else {
                 let guard = self.lock.borrow();
             }
@@ -151,8 +161,10 @@ impl<T: ?Sized> RwLock<T> {
 
     pub(crate) fn write(&self) -> RwLockWriteGuard<'_, T> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sync")] {
+            if #[cfg(feature = "std-sync")] {
                 let guard = unpoison(self.lock.write());
+            } else if #[cfg(feature = "spin-sync")] {
+                let guard = self.lock.write();
             } else {
                 let guard = self.lock.borrow_mut();
             }
@@ -165,12 +177,17 @@ impl<T: ?Sized> RwLock<T> {
 
     pub(crate) fn try_read(&self) -> Result<RwLockReadGuard<'_, T>, TryLockError> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sync")] {
+            if #[cfg(any(feature = "std-sync"))] {
                 use std::sync::TryLockError as E;
                 let result = match self.lock.try_read() {
                     Ok(guard) => Ok(guard),
                     Err(E::Poisoned(error)) => Ok(error.into_inner()),
                     Err(E::WouldBlock) => Err(TryLockError),
+                };
+            } else if #[cfg(any(feature = "spin-sync"))] {
+                let result = match self.lock.try_read() {
+                    Some(guard) => Ok(guard),
+                    None => Err(TryLockError),
                 };
             } else {
                 let result = match self.lock.try_borrow() {
@@ -222,7 +239,7 @@ impl<T: ?Sized> ops::DerefMut for RwLockWriteGuard<'_, T> {
 #[derive(Debug)]
 pub(crate) struct TryLockError;
 
-#[cfg(feature = "sync")]
+#[cfg(feature = "std-sync")]
 fn unpoison<T>(result: Result<T, std::sync::PoisonError<T>>) -> T {
     match result {
         Ok(guard) => guard,
