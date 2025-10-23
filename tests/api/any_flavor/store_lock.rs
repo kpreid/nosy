@@ -4,13 +4,13 @@ use super::flavor;
 use nosy::{FromListener, Listener as _, StoreLock};
 
 #[test]
-fn store_lock_debug() {
+fn debug() {
     let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
     assert_eq!(format!("{sl:?}"), "StoreLock([\"initial\"])");
 }
 
 #[test]
-fn store_lock_listener_debug() {
+fn listener_debug() {
     let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
     let listener = sl.listener();
     assert_eq!(
@@ -36,12 +36,12 @@ fn pointer_fmt_eq() {
 }
 
 #[test]
-fn store_lock_meets_trait_bounds() {
+fn meets_trait_bounds() {
     let _ = flavor::DynListener::<i32>::from_listener(StoreLock::new(vec![]).listener());
 }
 
 #[test]
-fn store_lock_basics() {
+fn basics() {
     let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
     let listener = sl.listener();
 
@@ -60,7 +60,7 @@ fn store_lock_basics() {
 }
 
 #[test]
-fn store_lock_receive_inherent() {
+fn receive_inherent() {
     let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
     sl.receive(&["from inherent receive"]);
 
@@ -74,7 +74,7 @@ fn store_lock_receive_inherent() {
 /// even if the underlying implementation does.
 /// In exchange, the guard is not `UnwindSafe` either.
 #[test]
-fn store_lock_not_poisoned() {
+fn not_poisoned() {
     let sl: StoreLock<Vec<&'static str>> = StoreLock::new(vec!["initial"]);
     let listener = sl.listener();
 

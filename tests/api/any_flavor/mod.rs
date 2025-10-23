@@ -4,4 +4,4 @@ mod gate;
 mod notifier;
 mod simple_listeners;
 mod source;
-mod store;
+mod store_lock;

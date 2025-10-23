@@ -193,7 +193,10 @@ mod notifier;
 pub use notifier::{Buffer, Notifier, NotifierForwarder, RawBuffer, RawNotifier};
 
 mod store;
-pub use store::{Store, StoreLock, StoreLockListener};
+pub use store::Store;
+
+mod store_lock;
+pub use store_lock::{StoreLock, StoreLockListener};
 
 mod util;
 
