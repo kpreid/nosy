@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2025-11-18)
+
+This release adds flexibility and features to allow `nosy` types to be `Send + Sync` even in `no_std` environments.
 
 ## Added
 
@@ -16,12 +18,16 @@
   - `nosy` provides implementations like
     `impl<T: Store<M>, M> StoreRef<M> for Mutex<T>`, and one can do the same for new `no_std` lock types.
     Thus, `Weak<Mutex<MyStore>>` provides the same functionality as `nosy::StoreLockListener<MyStore>`, but its individual parts are replaceable.
-    
+
+- New package feature `"spin-sync"` to use the `spin` library’s locks instead of `std`.
+  This allows all `nosy` types to be `Send + Sync` even in `no_std` environments,
+  provided that they use only one thread or that the costs of spinlocks are acceptable.
 
 ## Changed
 
 - The first generic parameter of `nosy::Cell` is now the type of the interior mutable container for the value rather than the value.
   (The type aliases `nosy::{sync,unsync}::Cell` have not changed.)
+- The package feature `"sync"` has been renamed to `"std-sync"` and implies the `"std"` feature.
 
 ## 0.2.0 (2025-08-24)
 
