@@ -37,7 +37,7 @@ futures-core = { version = "0.3.31", optional = true, default-features = false }
 futures-util = { version = "0.3.31", optional = true, default-features = false }
 cfg-if = { version = "1.0.0", default-features = false }
 mutants = { version = "0.0.3", default-features = false }
-spin = { version = "0.9.8", optional = true, default-features = false, features = ["spin_mutex", "rwlock"] }
+spin = { version = "0.10.0", optional = true, default-features = false, features = ["spin_mutex", "rwlock"] }
 
 [dev-dependencies]
 # For examples
