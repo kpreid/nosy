@@ -97,7 +97,7 @@ jobs:
   
     - name: Save cargo --timings output
       if: ${{ always() }}
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: cargo-timings lint ${{ matrix.toolchain }}
         path: |
@@ -159,7 +159,7 @@ jobs:
       - name: Mutants
         run: cargo mutants --in-diff git.diff
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: mutants-incremental.out
